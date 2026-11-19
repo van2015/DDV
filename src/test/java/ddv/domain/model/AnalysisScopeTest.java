@@ -12,35 +12,35 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AnalysisScopeTest {
 
-    private static final RepoScope ORIGEN = RepoScope.lastN("/repo", 3);
+    private static final RepoScope SOURCE = RepoScope.lastN("/repo", 3);
 
     private static Commit commit(String sha) {
         return Commit.of(sha);
     }
 
     @Test
-    @DisplayName("Sin commits lanza EMPTY_RANGE")
-    void sinCommitsLanzaError() {
-        assertThatThrownBy(() -> new AnalysisScope(ORIGEN, List.of()))
+    @DisplayName("Without commits throws EMPTY_RANGE")
+    void emptyCommitsThrowsEmptyRange() {
+        assertThatThrownBy(() -> new AnalysisScope(SOURCE, List.of()))
                 .isInstanceOf(ScopeException.class)
                 .extracting(e -> ((ScopeException) e).code())
                 .isEqualTo(ScopeException.Code.EMPTY_RANGE);
     }
 
     @Test
-    @DisplayName("Origen nulo lanza NullPointerException")
-    void origenNuloLanzaError() {
+    @DisplayName("Null source throws NullPointerException")
+    void nullSourceThrowsNullPointerException() {
         assertThatThrownBy(() -> new AnalysisScope(null, List.of(commit("a1"))))
                 .isInstanceOf(NullPointerException.class);
     }
 
     @Test
-    @DisplayName("La lista de commits es inmutable aunque se pase mutable")
-    void listaDeCommitsEsInmutable() {
-        var externa = new ArrayList<>(List.of(commit("a1"), commit("b2")));
-        var scope = new AnalysisScope(ORIGEN, externa);
+    @DisplayName("The commit list is immutable even when built from a mutable one")
+    void commitListIsImmutable() {
+        var external = new ArrayList<>(List.of(commit("a1"), commit("b2")));
+        var scope = new AnalysisScope(SOURCE, external);
 
-        externa.clear(); // mutar la fuente externa no afecta al dominio
+        external.clear(); // mutating the external source must not leak into the domain
         assertThat(scope.size()).isEqualTo(2);
 
         assertThatThrownBy(() -> scope.commits().add(commit("c3")))
@@ -48,9 +48,9 @@ class AnalysisScopeTest {
     }
 
     @Test
-    @DisplayName("first()/last() devuelven extremos del rango")
-    void extremosDelRango() {
-        var scope = new AnalysisScope(ORIGEN,
+    @DisplayName("first()/last() return the range bounds")
+    void firstAndLastReturnRangeBounds() {
+        var scope = new AnalysisScope(SOURCE,
                 List.of(commit("aaa1111"), commit("bbb2222"), commit("ccc3333")));
 
         assertThat(scope.first().id()).isEqualTo("aaa1111");
@@ -59,31 +59,31 @@ class AnalysisScopeTest {
     }
 
     @Test
-    @DisplayName("consecutivePairs() devuelve n-1 pares ordenados (Cᵢ₋₁, Cᵢ)")
-    void paresConsecutivosParaElPipeline() {
-        var scope = new AnalysisScope(ORIGEN,
+    @DisplayName("consecutivePairs() yields n-1 ordered pairs (Cᵢ₋₁, Cᵢ)")
+    void consecutivePairsYieldsTransitionsForPipeline() {
+        var scope = new AnalysisScope(SOURCE,
                 List.of(commit("c1"), commit("c2"), commit("c3"), commit("c4")));
 
-        var pares = scope.consecutivePairs();
+        var pairs = scope.consecutivePairs();
 
-        assertThat(pares).hasSize(3);
-        assertThat(pares.get(0).previous().id()).isEqualTo("c1");
-        assertThat(pares.get(0).current().id()).isEqualTo("c2");
-        assertThat(pares.get(2).previous().id()).isEqualTo("c3");
-        assertThat(pares.get(2).current().id()).isEqualTo("c4");
+        assertThat(pairs).hasSize(3);
+        assertThat(pairs.get(0).previous().id()).isEqualTo("c1");
+        assertThat(pairs.get(0).current().id()).isEqualTo("c2");
+        assertThat(pairs.get(2).previous().id()).isEqualTo("c3");
+        assertThat(pairs.get(2).current().id()).isEqualTo("c4");
     }
 
     @Test
-    @DisplayName("consecutivePairs() con un solo commit devuelve vacío")
-    void unSoloCommitSinPares() {
-        var scope = new AnalysisScope(ORIGEN, List.of(commit("c1")));
+    @DisplayName("A single commit yields no pairs")
+    void singleCommitYieldsNoPairs() {
+        var scope = new AnalysisScope(SOURCE, List.of(commit("c1")));
 
         assertThat(scope.consecutivePairs()).isEmpty();
     }
 
     @Test
-    @DisplayName("Commit.of() deriva shortId (8 chars) y tolera mensaje nulo vía defecto")
-    void commitDerivaShortId() {
+    @DisplayName("Commit.of() derives an 8-char shortId with empty defaults")
+    void commitDerivesShortId() {
         var c = Commit.of("1234567890abcdef");
 
         assertThat(c.shortId()).isEqualTo("12345678");
@@ -92,8 +92,8 @@ class AnalysisScopeTest {
     }
 
     @Test
-    @DisplayName("Commit con id vacío lanza INVALID_ARGUMENT")
-    void commitIdVacioLanzaError() {
+    @DisplayName("Commit with blank id throws INVALID_ARGUMENT")
+    void blankCommitIdThrowsInvalidArgument() {
         assertThatThrownBy(() -> Commit.of(" "))
                 .isInstanceOf(ScopeException.class);
     }

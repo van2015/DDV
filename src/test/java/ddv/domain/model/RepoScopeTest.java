@@ -10,8 +10,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class RepoScopeTest {
 
     @Test
-    @DisplayName("between() crea el alcance con rango A..B recortado")
-    void betweenCreaRangoEntreCommits() {
+    @DisplayName("between() creates the scope with a trimmed A..B range")
+    void betweenCreatesRangeWithTrimmedCommits() {
         var scope = RepoScope.between("/repo/x", " abc123 ", "def456");
 
         assertThat(scope.location()).isEqualTo("/repo/x");
@@ -22,16 +22,16 @@ class RepoScopeTest {
     }
 
     @Test
-    @DisplayName("lastN() crea el alcance con rango de últimos N commits")
-    void lastNCreaRangoUltimosN() {
+    @DisplayName("lastN() creates the scope with a last-N-commits range")
+    void lastNCreatesLastNRange() {
         var scope = RepoScope.lastN("/repo/x", 10);
 
         assertThat(scope.range()).isEqualTo(new RepoScope.Range.LastN(10));
     }
 
     @Test
-    @DisplayName("lastN() con N <= 0 lanza INVALID_ARGUMENT")
-    void lastNNoPositivoLanzaError() {
+    @DisplayName("lastN() with N <= 0 throws INVALID_ARGUMENT")
+    void nonPositiveLastNThrowsInvalidArgument() {
         assertThatThrownBy(() -> RepoScope.lastN("/repo/x", 0))
                 .isInstanceOf(ScopeException.class)
                 .extracting(e -> ((ScopeException) e).code())
@@ -39,8 +39,8 @@ class RepoScopeTest {
     }
 
     @Test
-    @DisplayName("ubicación vacía o nula lanza INVALID_ARGUMENT")
-    void ubicacionVaciaLanzaError() {
+    @DisplayName("Blank or null location throws INVALID_ARGUMENT")
+    void blankLocationThrowsInvalidArgument() {
         assertThatThrownBy(() -> RepoScope.lastN("  ", 5))
                 .isInstanceOf(ScopeException.class);
         assertThatThrownBy(() -> RepoScope.between(null, "a", "b"))
@@ -48,25 +48,25 @@ class RepoScopeTest {
     }
 
     @Test
-    @DisplayName("rango A..B con extremos vacíos lanza INVALID_ARGUMENT")
-    void rangoConExtremosVaciosLanzaError() {
+    @DisplayName("A..B range with blank bounds throws INVALID_ARGUMENT")
+    void rangeWithBlankBoundsThrowsInvalidArgument() {
         assertThatThrownBy(() -> RepoScope.between("/repo", "", "abc"))
                 .isInstanceOf(ScopeException.class);
     }
 
     @Test
-    @DisplayName("rango nulo lanza INVALID_ARGUMENT")
-    void rangoNuloLanzaError() {
+    @DisplayName("Null range throws INVALID_ARGUMENT")
+    void nullRangeThrowsInvalidArgument() {
         assertThatThrownBy(() -> new RepoScope("/repo", null))
                 .isInstanceOf(ScopeException.class);
     }
 
     @Test
-    @DisplayName("isRemote() detecta URLs y scp-style; no rutas locales")
-    void detectaFuenteRemota() {
+    @DisplayName("isRemote() detects URLs and scp-style sources, not local paths")
+    void detectsRemoteSource() {
         assertThat(RepoScope.between("https://github.com/x/y.git", "a", "b").isRemote()).isTrue();
         assertThat(RepoScope.between("git@github.com:x/y.git", "a", "b").isRemote()).isTrue();
-        assertThat(RepoScope.lastN("/ruta/local", 3).isRemote()).isFalse();
-        assertThat(RepoScope.lastN("./relativa", 3).isRemote()).isFalse();
+        assertThat(RepoScope.lastN("/local/path", 3).isRemote()).isFalse();
+        assertThat(RepoScope.lastN("./relative", 3).isRemote()).isFalse();
     }
 }
