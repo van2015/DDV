@@ -1,0 +1,155 @@
+# Arquitectura — DDV (Detección de Diferencias Versionadas)
+
+**Estilo elegido:** Hexagonal (Ports & Adapters) + Pipeline interno para el bucle UC2→UC3→UC4.
+**Stack:** Java 17+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito.
+
+---
+
+## 1. Principio rector
+
+> **Las dependencias apuntan hacia adentro.** El núcleo (`domain`, `application`, `ports`) nunca importa frameworks ni adaptadores (JGit, picocli, JPA…). Los adaptadores (`adapters/`) implementan los puertos (`ports/`); nunca al revés.
+
+- El **pipeline** (diff → análisis AST → diagrama) es el *algoritmo* de DDV.
+- La **hexagonal** es la *estructura*: quién depende de qué y dónde se toca el mundo exterior.
+
+---
+
+## 2. Diagrama de componentes
+
+```mermaid
+flowchart TB
+    subgraph primarios["Adaptadores primarios (entrada)"]
+        CLI["CLI picocli<br/>ddv analyze"]
+    end
+
+    subgraph nucleo["Núcleo hexagonal"]
+        direction TB
+        UC1["UC1: ScopeResolver<br/>(application/uc1)"]
+        subgraph pipeline["Pipeline interno (bucle por commit)"]
+            direction LR
+            P1["DiffExtractor<br/>Δ"] --> P2["StructuralAnalyzer<br/>AST → Sᵢ"] --> P3["DiagramGenerator<br/>UML"]
+        end
+        UC5["UC5: EvolutionComparer<br/>(application/uc5)"]
+        ports["Ports<br/>GitSourcePort · ParserPort<br/>RendererPort · StorePort"]
+        dominio["Domain<br/>RepoScope · CommitDelta<br/>StructuralChange · Sᵢ · DiagramSpec"]
+    end
+
+    subgraph secundarios["Adaptadores secundarios (salida)"]
+        JGit["JGitAdapter"]
+        AST["AstParserAdapter"]
+        MER["MermaidRenderer"]
+        FS["FileStoreAdapter"]
+    end
+
+    CLI --> UC1
+    UC1 --> pipeline
+    pipeline --> UC5
+    pipeline -.-> ports
+    UC1 -.-> ports
+    UC5 -.-> ports
+    ports --> JGit
+    ports --> AST
+    ports --> MER
+    ports --> FS
+    dominio --- ports
+```
+
+---
+
+## 3. Estructura de paquetes
+
+```
+ddv/
+├── domain/                  # Puro: cero dependencias externas
+│   ├── model/               #   RepoScope, CommitDelta, StructuralChange, DiagramSpec
+│   └── exception/           #   ScopeException, DiffException...
+├── application/             # Casos de uso + pipeline (solo depende de domain y ports)
+│   ├── uc1/                 #   ScopeResolver
+│   ├── pipeline/            #   DiffExtractor → StructuralAnalyzer → DiagramGenerator
+│   └── uc5/                 #   EvolutionComparer
+├── ports/                   # Interfaces (contrato hexagonal)
+│   ├── GitSourcePort.java
+│   ├── ParserPort.java
+│   ├── RendererPort.java
+│   └── StorePort.java
+└── adapters/
+    ├── in/cli/              # picocli → llama a application
+    └── out/
+        ├── jgit/            # GitSourcePort vía JGit
+        ├── ast/             # ParserPort vía parser AST
+        ├── mermaid/         # RendererPort → bloques Mermaid
+        └── file/            # StorePort → Sᵢ y diagramas en disco
+```
+
+**Regla de dependencia (importaciones):**
+
+```mermaid
+flowchart LR
+    A["adapters"] -->|implementa| P["ports"]
+    APP["application"] -->|usa| P
+    APP --> D["domain"]
+    P --> D
+    A -->|puede importar| APP
+```
+
+Prohibido: `domain` importando de `application`, `ports` o `adapters`; `application` importando de `adapters`.
+
+---
+
+## 4. Puertos y adaptadores
+
+| Puerto (`ports/`) | Adaptador (`adapters/out/`) | Responsabilidad |
+| :--- | :--- | :--- |
+| `GitSourcePort` | `JGitAdapter` | Abrir/clone del repo, resolver rango $C_1..C_n$, extraer diff entre $C_{i-1}, C_i$ |
+| `ParserPort` | `AstParserAdapter` | `parse(archivo, diff) → StructuralChange` (clases, métodos, imports) |
+| `RendererPort` | `MermaidRenderer` | `render(Sᵢ) → DiagramSpec` (futuro: `PlantUMLAdapter`) |
+| `StorePort` | `FileStoreAdapter` | Persistir/cargar $S_1..S_n$ y diagramas (requisito acumulativo de UC5) |
+
+```java
+public interface GitSourcePort {
+    Repository open(RepoScope scope);
+    List<Commit> resolveRange(RepoScope scope);        // C₁..Cₙ
+    CommitDelta diff(Commit previous, Commit current); // Δ por commit
+}
+```
+
+---
+
+## 5. El pipeline interno (UC2 → UC3 → UC4)
+
+```mermaid
+flowchart LR
+    S["AnalysisScope<br/>(C₁..Cₙ)"] --> L{"para cada<br/>Cᵢ"}
+    L -->|"Cᵢ₋₁, Cᵢ"| D["DiffExtractor<br/>(GitSourcePort)"]
+    D -->|"CommitDelta"| A["StructuralAnalyzer<br/>(ParserPort)"]
+    A -->|"Sᵢ"| G["DiagramGenerator<br/>(RendererPort)"]
+    G -->|"DiagramSpec"| ST["StorePort<br/>acumula Sᵢ"]
+    ST --> L
+    L -->|"fin del rango"| R["UC5: EvolutionComparer<br/>(lee StorePort)"]
+```
+
+- Cada etapa es una clase con **un solo método** y depende solo de puertos → testeable con mocks (Mockito) sin Git ni disco.
+- El `StorePort` materializa la "acumulación de datos" que UC5 requiere (su `«include»` sobre UC4).
+
+---
+
+## 6. Beneficios y costes
+
+| Beneficio | Coste / riesgo |
+| :--- | :--- |
+| Tests unitarios del núcleo sin JGit ni repos reales | Boilerplate inicial: interfaces + POJOs antes de la primera funcionalidad |
+| Añadir `PlantUMLAdapter` u otro lenguaje = clase nueva, cero cambios en `application/` | Riesgo de "hexagonal a medias" si un framework se cuela en `domain/` → regla en `AGENTS.md` § Reglas |
+| El bucle por commit queda encapsulado e invisible para la CLI | |
+| `ParserPort`/`RendererPort` son el germen de un futuro Microkernel/Plugins | |
+
+---
+
+## 7. Relación con los casos de uso
+
+| Caso de Uso | Ubicación en la arquitectura |
+| :--- | :--- |
+| UC1 Conectar y definir alcance | `application/uc1/ScopeResolver` + `JGitAdapter` (open/resolveRange) |
+| UC2 Detección de Δ | `application/pipeline/DiffExtractor` |
+| UC3 Análisis estructural | `application/pipeline/StructuralAnalyzer` + `AstParserAdapter` |
+| UC4 Diagrama UML por commit | `application/pipeline/DiagramGenerator` + `MermaidRenderer` |
+| UC5 Comparar evolución global | `application/uc5/EvolutionComparer` + `FileStoreAdapter` |
