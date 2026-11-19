@@ -26,17 +26,14 @@ public record AnalysisScope(RepoScope source, List<Commit> commits) {
         commits = List.copyOf(commits); // inmutable, defensa contra copias externas
     }
 
-    /** Número de commits del rango ($n$). */
     public int size() {
         return commits.size();
     }
 
-    /** Primer commit del rango ($C_1$). */
     public Commit first() {
         return commits.get(0);
     }
 
-    /** Último commit del rango ($C_n$). */
     public Commit last() {
         return commits.get(commits.size() - 1);
     }
@@ -56,7 +53,6 @@ public record AnalysisScope(RepoScope source, List<Commit> commits) {
         return List.copyOf(pairs);
     }
 
-    /** Par $(C_{i-1}, C_i)$ sobre el que se calcula una Δ. */
     public record ConsecutivePair(Commit previous, Commit current) {
         public ConsecutivePair {
             Objects.requireNonNull(previous, "previous no puede ser nulo");

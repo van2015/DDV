@@ -27,7 +27,7 @@ public record Commit(String id, String shortId, String message, Instant authored
         Objects.requireNonNull(message, "El mensaje del commit no puede ser nulo");
     }
 
-    /** Crea un commit solo con el SHA (resto opcional). */
+    /** Commit solo con el SHA; resto con valores por defecto. */
     public static Commit of(String id) {
         return new Commit(id, null, "", null);
     }

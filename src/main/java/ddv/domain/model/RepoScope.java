@@ -29,12 +29,10 @@ public record RepoScope(String location, Range range) {
         }
     }
 
-    /** Fábrica: rango explícito {@code A..B}. */
     public static RepoScope between(String location, String from, String to) {
         return new RepoScope(location, new Range.Between(from, to));
     }
 
-    /** Fábrica: últimos {@code n} commits. */
     public static RepoScope lastN(String location, int n) {
         return new RepoScope(location, new Range.LastN(n));
     }
