@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC1: Conectar y Definir el Alcance del Repositorio
 
-**Estado:** T1 completada — resto pendiente de aprobación/ejecución
+**Estado:** T1–T2 completadas — resto pendiente
 **Stack:** Java 17+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 
@@ -19,7 +19,7 @@ Seleccionar fuente (local/remota), especificar rango de análisis (`commit A..B`
 | # | Tarea | Paquete hexagonal | Descripción | Entregable |
 | :--- | :--- | :--- | :--- | :--- |
 | **T1** | ✅ Estructura Maven base | raíz | `pom.xml` con deps (JGit, picocli, JUnit, Mockito); paquetes `domain`, `application`, `ports`, `adapters.in/cli`, `adapters.out/jgit` | `mvn compile` OK — *ver nota de entorno abajo* |
-| **T2** | Modelo de dominio | `domain/model`, `domain/exception` | `RepoScope` (fuente local/URL, rango `A..B` \| `LAST_N`), `AnalysisScope` (lista inmutable $C_1..C_n$), `ScopeException` | POJOs inmutables (records) |
+| **T2** | ✅ Modelo de dominio | `domain/model`, `domain/exception` | `RepoScope` (fuente local/URL, rango `A..B` \| `LAST_N`), `AnalysisScope` (lista inmutable $C_1..C_n$), `ScopeException` | POJOs inmutables (records) — `Commit` añadido como modelo propio (evita exponer `RevCommit` de JGit al dominio); 15 tests ✅ |
 | **T3** | Puerto de Git | `ports` | Interfaz `GitSourcePort`: `open(RepoScope)`, `resolveRange(RepoScope)`, `diff(prev, curr)` | Contrato compilable |
 | **T4** | Adaptador JGit: conexión | `adapters/out/jgit` | Abrir repo local (`Git.open`), clonar/verificar remoto (`cloneRepository`/`lsRemote`); detectar HEAD | `JGitAdapter` (conexión) |
 | **T5** | Adaptador JGit: rango | `adapters/out/jgit` | Resolver `A..B` y últimos N a `List<RevCommit>` (`RevWalk`, `log`); verificar ancestroía | `JGitAdapter` (rango) |
