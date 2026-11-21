@@ -1,7 +1,7 @@
 # Propuesta de Tareas — UC1: Conectar y Definir el Alcance del Repositorio
 
 **Estado:** T1–T2 completadas — resto pendiente
-**Stack:** Java 17+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito
+**Stack:** Java 25+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 
 ---
@@ -55,11 +55,9 @@ flowchart LR
 - **T6 es el caso de uso UC1**: no conoce JGit ni picocli; solo puertos.
 - **T8 es el adaptador de entrada**: traduce argumentos CLI a `RepoScope` y formatea errores de `ScopeException`.
 
-## Nota de entorno (hallazgo en T1)
+## Nota de entorno
 
-- El `javac` del sistema (`/usr/bin/javac`) apunta al **JDK 8** y el JDK 25 instalado **no incluye compilador**, por lo que `mvn compile` falla con `release version 17 not supported`.
-- **Solución aplicada:** JDK 17 portable (Temurin 17.0.21.1) descargado en `~/.local/jdks/jdk-17.0.21.1+2`. Ejecutar Maven con `export JAVA_HOME=~/.local/jdks/jdk-17.0.21.1+2` (documentado en `README.md`).
-- Alternativa con root: `sudo apt install openjdk-17-jdk` + `update-alternatives --set javac`.
+- El entorno dispone de Temurin JDK 25.0.5.1+2 en `~/.local/jdks/jdk-25.0.5.1+2`. Configura `JAVA_HOME` y `PATH` como se indica en `README.md` para compilar y testear con el nivel Java requerido.
 
 ## Fuera de alcance de UC1
 

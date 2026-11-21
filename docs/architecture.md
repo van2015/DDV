@@ -1,7 +1,7 @@
 # Arquitectura — DDV (Detección de Diferencias Versionadas)
 
 **Estilo elegido:** Hexagonal (Ports & Adapters) + Pipeline interno para el bucle UC2→UC3→UC4.
-**Stack:** Java 17+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito.
+**Stack:** Java 25+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito.
 
 ---
 
