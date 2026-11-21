@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-21 — estado tras T3 (`GitSourcePort`).
+> **Última actualización:** 2026-11-21 — estado tras T4 (`JGitAdapter`).
 
 ---
 
@@ -109,6 +109,22 @@ classDiagram
         +close() void
     }
 
+    class JGitAdapter {
+        <<adapter: out/jgit>>
+        +open(RepoScope scope) RepositoryHandle
+        +resolveRange(RepositoryHandle repository, RepoScope scope) AnalysisScope
+        +diff(RepositoryHandle repository, Commit previous, Commit current) CommitDelta
+        -openLocal(String location) RepositoryHandle
+        -openRemote(String url) RepositoryHandle
+    }
+
+    class JGitHandle {
+        <<private nested>>
+        -Git git
+        -Path clonedWorkspace
+        +close() void
+    }
+
     %% Composición del dominio
     AnalysisScope "1" *-- "0..*" Commit : commits (C₁..Cₙ)
     AnalysisScope "1" *-- "1" RepoScope : source
@@ -127,6 +143,12 @@ classDiagram
     GitSourcePort ..> AnalysisScope : resolveRange()
     GitSourcePort ..> Commit : diff(prev, curr)
     GitSourcePort ..> CommitDelta : diff()
+
+    %% Adaptador de salida (T4)
+    GitSourcePort <|.. JGitAdapter : implements
+    RepositoryHandle <|.. JGitHandle : implements
+    JGitAdapter *-- JGitHandle : crea en open()
+    JGitAdapter ..> ScopeException : traduce errores de infraestructura
 
     %% Invariantes: constructores compactos lanzan ScopeException
     Commit ..> ScopeException : throws (INVALID_ARGUMENT)
@@ -149,7 +171,9 @@ classDiagram
 ## Notas de diseño
 
 - **`Commit` no tiene `delta()`:** la Δ se calcula en el adaptador vía `GitSourcePort.diff()`; el dominio solo ensambla `CommitDelta` (discusión 2026-11-21 — evita que `Commit` dependa de infraestructura).
-- **`RepositoryHandle` es opaco:** la implementación real (JGit) se oculta en `adapters/out/jgit` (T4); el núcleo solo lo ve como `AutoCloseable`.
+- **`RepositoryHandle` es opaco:** su implementación real es `JGitHandle` (clase interna privada de `JGitAdapter`); maneja `Git` y limpia el workspace temporal del clon en `close()`.
+- **`JGitAdapter` traduce errores** de JGit a `ScopeException` (`REPO_NOT_FOUND` en local, `NO_ACCESS` en remoto).
+- **`resolveRange()` y `diff()`** lanzan `UnsupportedOperationException` hasta T5 (rango) y UC2 (Δ) respectivamente.
 - **`Code`** está anidado en `ScopeException` (`ScopeException.Code`).
 - **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 
@@ -157,10 +181,11 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| T4–T5 | `adapters/out/jgit/JGitAdapter` (implementa `GitSourcePort`, `RepositoryHandle`) |
+| T5 | `JGitAdapter.resolveRange()` (rango `A..B` / últimos N vía `RevWalk`) |
 | T6 | `application/uc1/ScopeResolver` |
 | T7 | validaciones completas de `ScopeException` |
 | T8 | `adapters/in/cli/AnalyzeCommand` (picocli) |
+| UC2 | `JGitAdapter.diff()` (Δ entre commits consecutivos) |
 | UC3 | `ParserPort`, `AstParserAdapter`, `StructuralChange` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |
