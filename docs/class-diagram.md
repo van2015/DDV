@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-22 — estado tras T5 (`resolveRange`).
+> **Última actualización:** 2026-11-22 — estado tras T6 (`ScopeResolver`).
 
 ---
 
@@ -125,6 +125,13 @@ classDiagram
         +close() void
     }
 
+    class ScopeResolver {
+        <<use case: uc1>>
+        -GitSourcePort gitSourcePort
+        +ScopeResolver(GitSourcePort gitSourcePort)
+        +resolve(RepoScope scope) AnalysisScope
+    }
+
     %% Composición del dominio
     AnalysisScope "1" *-- "0..*" Commit : commits (C₁..Cₙ)
     AnalysisScope "1" *-- "1" RepoScope : source
@@ -150,6 +157,11 @@ classDiagram
     JGitAdapter *-- JGitHandle : crea en open()
     JGitAdapter ..> ScopeException : traduce errores de infraestructura
 
+    %% Caso de uso UC1 (T6)
+    ScopeResolver ..> GitSourcePort : usa (inyección)
+    ScopeResolver ..> RepoScope : entrada
+    ScopeResolver ..> AnalysisScope : salida
+
     %% Invariantes: constructores compactos lanzan ScopeException
     Commit ..> ScopeException : throws (INVALID_ARGUMENT)
     RepoScope ..> ScopeException : throws (INVALID_ARGUMENT)
@@ -174,6 +186,7 @@ classDiagram
 - **`RepositoryHandle` es opaco:** su implementación real es `JGitHandle` (clase interna privada de `JGitAdapter`); maneja `Git` y limpia el workspace temporal del clon en `close()`.
 - **`JGitAdapter` traduce errores** de JGit a `ScopeException` (`REPO_NOT_FOUND` en local, `NO_ACCESS` en remoto).
 - **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**; `diff()` sigue pendiente hasta UC2.
+- **`ScopeResolver` (T6)** orquesta `open → resolveRange → close` con *try-with-resources* mediante inyección de `GitSourcePort`; no conoce JGit ni valida directamente (validan dominio y adaptador).
 - **`Code`** está anidado en `ScopeException` (`ScopeException.Code`).
 - **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 
@@ -181,7 +194,6 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| T6 | `application/uc1/ScopeResolver` |
 | T7 | validaciones completas de `ScopeException` |
 | T8 | `adapters/in/cli/AnalyzeCommand` (picocli) |
 | UC2 | `JGitAdapter.diff()` (Δ entre commits consecutivos) |
