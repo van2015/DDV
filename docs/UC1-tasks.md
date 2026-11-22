@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC1: Conectar y Definir el Alcance del Repositorio
 
-**Estado:** T1–T7 completadas — resto pendiente
+**Estado:** T1–T8 completadas — resto pendiente
 **Stack:** Java 25+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 
@@ -25,7 +25,7 @@ Seleccionar fuente (local/remota), especificar rango de análisis (`commit A..B`
 | **T5** | ✅ Adaptador JGit: rango | `adapters/out/jgit` | Resolver `A..B` y últimos N a `List<RevCommit>` (`RevWalk`, `log`); verificar ancestroía | `JGitAdapter` (rango) — devuelve `AnalysisScope` ascendente; switch *sealed* sobre `Range`; `NOT_ANCESTOR`/`COMMIT_NOT_FOUND`/`EMPTY_RANGE`; fixtures compartidos `GitFixtures`; 6 tests ✅ |
 | **T6** | ✅ Caso de uso ScopeResolver | `application/uc1` | Orquesta T3–T5: valida fuente, rango coherente, no vacío → devuelve `AnalysisScope` | `ScopeResolver.java` — `open → resolveRange → close` con *try-with-resources* e inyección de puerto; 3 tests (Mockito) ✅ |
 | **T7** | ✅ Validaciones y errores | `domain/exception` | Repo inexistente/sin acceso, commits inexistentes, `A` no ancestro de `B`, rango vacío → `ScopeException` con mensajes claros | Matriz de códigos en `docs/class-diagram.md`; tests nuevos: `CommitDeltaTest` (5), archivo como repo → `REPO_NOT_FOUND`, handle ajeno → `INVALID_ARGUMENT`; mensajes auditados ✅ |
-| **T8** | CLI (adaptador de entrada) | `adapters/in/cli` | Comando picocli: `ddv analyze --repo <ruta\|URL> --range A..B \| --last N` → llama a `ScopeResolver` | `AnalyzeCommand.java` |
+| **T8** | ✅ CLI (adaptador de entrada) | `adapters/in/cli` | Comando picocli: `ddv analyze --repo <ruta\|URL> --range A..B \| --last N` → llama a `ScopeResolver` | `AnalyzeCommand` (`Callable<Integer>`, ArgGroup exclusivo, salida por writers de picocli) + `DdvCommand` (raíz/composición, `main`); exit 0/1/2; 8 tests ✅ |
 | **T9** | Salida hacia UC2 | `application` | Garantizar que `AnalysisScope` es el contrato que consumirá el bucle UC2→UC3→UC4 | Interfaz estable |
 | **T10** | Pruebas y QA | `src/test` | Unitarias del dominio y `ScopeResolver` con `GitSourcePort` mockeado (Mockito); integración con repos JGit temporales (fixtures); E2E del comando CLI | Cobertura ≥ 80% en `application/uc1` y `adapters/out/jgit` |
 

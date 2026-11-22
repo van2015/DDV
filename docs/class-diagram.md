@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-22 — estado tras T7 (validaciones y errores).
+> **Última actualización:** 2026-11-22 — estado tras T8 (CLI `ddv analyze`).
 
 ---
 
@@ -132,6 +132,27 @@ classDiagram
         +resolve(RepoScope scope) AnalysisScope
     }
 
+    class AnalyzeCommand {
+        <<adapter: in/cli>>
+        +AnalyzeCommand(ScopeResolver scopeResolver)
+        +call() Integer
+        -toRepoScope() RepoScope
+        -describe(Range range) String
+    }
+
+    class RangeArgs {
+        <<private nested>>
+        +String range
+        +Integer last
+    }
+
+    class DdvCommand {
+        <<entry point: in/cli>>
+        +run() void
+        +main(String[] args)$ void
+        -execute(String[] args)$ int
+    }
+
     %% Composición del dominio
     AnalysisScope "1" *-- "0..*" Commit : commits (C₁..Cₙ)
     AnalysisScope "1" *-- "1" RepoScope : source
@@ -162,6 +183,14 @@ classDiagram
     ScopeResolver ..> RepoScope : entrada
     ScopeResolver ..> AnalysisScope : salida
 
+    %% Adaptador de entrada (T8)
+    DdvCommand *-- AnalyzeCommand : registra subcomando
+    DdvCommand ..> ScopeResolver : ensambla (raíz de composición)
+    AnalyzeCommand ..> ScopeResolver : invoca (inyección)
+    AnalyzeCommand ..> RepoScope : traduce argumentos CLI a
+    AnalyzeCommand ..> ScopeException : captura → exit 1
+    AnalyzeCommand *-- RangeArgs : ArgGroup exclusivo (--range | --last)
+
     %% Invariantes: constructores compactos lanzan ScopeException
     Commit ..> ScopeException : throws (INVALID_ARGUMENT)
     RepoScope ..> ScopeException : throws (INVALID_ARGUMENT)
@@ -183,10 +212,13 @@ classDiagram
 ## Notas de diseño
 
 - **`Commit` no tiene `delta()`:** la Δ se calcula en el adaptador vía `GitSourcePort.diff()`; el dominio solo ensambla `CommitDelta` (discusión 2026-11-21 — evita que `Commit` dependa de infraestructura).
+- **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 - **`RepositoryHandle` es opaco:** su implementación real es `JGitHandle` (clase interna privada de `JGitAdapter`); maneja `Git` y limpia el workspace temporal del clon en `close()`.
 - **`JGitAdapter` traduce errores** de JGit a `ScopeException` (`REPO_NOT_FOUND` en local, `NO_ACCESS` en remoto).
 - **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**; `diff()` sigue pendiente hasta UC2.
 - **`ScopeResolver` (T6)** orquesta `open → resolveRange → close` con *try-with-resources* mediante inyección de `GitSourcePort`; no conoce JGit ni valida directamente (validan dominio y adaptador).
+- **`AnalyzeCommand` (T8)** es el adaptador de entrada: `Callable<Integer>` de picocli con `@Spec` para escribir por los *writers* de la `CommandLine` (testeable sin capturar `System.out`). Salidas: **exit 0** (ok), **exit 1** (`ScopeException` → `Error [CÓDIGO]: mensaje` por stderr), **exit 2** (errores de uso de picocli: faltan/exclusivas opciones o `--range` sin `..`).
+- **`DdvCommand` (T8)** es la raíz de composición: único punto que junta `JGitAdapter` + `ScopeResolver`; con la raíz sin subcomando imprime la ayuda.
 - **`Code`** está anidado en `ScopeException` (`ScopeException.Code`).
 
 ### Matriz de validaciones (T7)
@@ -199,13 +231,11 @@ classDiagram
 | `COMMIT_NOT_FOUND` | `JGitAdapter.resolveRange` | extremo `A` o `B` inexistente (resuelto o `MissingObjectException`) |
 | `NOT_ANCESTOR` | `JGitAdapter.resolveRange` | `A` no es ancestro de `B` (`isMergedInto`) |
 | `EMPTY_RANGE` | `AnalysisScope` / `JGitAdapter` | lista vacía, único commit o `A == B`; HEAD sin crear |
-- **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| T8 | `adapters/in/cli/AnalyzeCommand` (picocli) |
 | UC2 | `JGitAdapter.diff()` (Δ entre commits consecutivos) |
 | UC3 | `ParserPort`, `AstParserAdapter`, `StructuralChange` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
