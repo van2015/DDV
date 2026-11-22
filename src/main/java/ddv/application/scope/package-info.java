@@ -4,4 +4,4 @@
  * <p>Clase principal: {@code ScopeResolver}. Orquesta los puertos sin conocer
  * JGit ni picocli.</p>
  */
-package ddv.application.uc1;
+package ddv.application.scope;

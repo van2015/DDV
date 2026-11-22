@@ -1,4 +1,4 @@
-package ddv.application.uc1;
+package ddv.application.scope;
 
 import ddv.domain.model.AnalysisScope;
 import ddv.domain.model.RepoScope;

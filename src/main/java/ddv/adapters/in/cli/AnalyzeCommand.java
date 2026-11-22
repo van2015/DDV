@@ -1,6 +1,6 @@
 package ddv.adapters.in.cli;
 
-import ddv.application.uc1.ScopeResolver;
+import ddv.application.scope.ScopeResolver;
 import ddv.domain.exception.ScopeException;
 import ddv.domain.model.RepoScope;
 import picocli.CommandLine.ArgGroup;

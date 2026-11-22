@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — estado tras T10 (QA: E2E + gate de cobertura).
+> **Última actualización:** 2026-11-23 — renombrado de paquetes `application` (`uc1`→`scope`, `uc5`→`evolution`).
 
 ---
 
@@ -126,7 +126,7 @@ classDiagram
     }
 
     class ScopeResolver {
-        <<use case: uc1>>
+        <<application: scope>>
         -GitSourcePort gitSourcePort
         +ScopeResolver(GitSourcePort gitSourcePort)
         +resolve(RepoScope scope) AnalysisScope
@@ -222,6 +222,7 @@ classDiagram
 - **`DdvCommand` (T8)** es la raíz de composición: único punto que junta `JGitAdapter` + `ScopeResolver`; con la raíz sin subcomando imprime la ayuda. El overload `execute(args, out, err)` (T10) es la costura testeable para el E2E: propaga los *writers* a los subcomandos porque picocli no lo hace (cada subcomando tiene su propia `CommandLine`).
 - **`AnalysisScope` es contrato estable (T9):** UC2–UC4 se apoyan en orden ascendente, inmutabilidad y `consecutivePairs()` en el mismo orden. Bloqueado por `AnalysisScopeTest` (instancias idénticas, pares inmutables, trazabilidad `source`, igualdad por valor) y `GitSourcePortContractTest` (reproduce la cabecera del bucle `open → diff(par) → close` contra un puerto falso).
 - **`Code`** está anidado en `ScopeException` (`ScopeException.Code`).
+- **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
 ### Matriz de validaciones (T7)
 

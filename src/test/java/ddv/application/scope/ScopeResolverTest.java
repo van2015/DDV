@@ -1,4 +1,4 @@
-package ddv.application.uc1;
+package ddv.application.scope;
 
 import ddv.domain.exception.ScopeException;
 import ddv.domain.model.AnalysisScope;

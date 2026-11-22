@@ -24,12 +24,12 @@ flowchart TB
 
     subgraph nucleo["Núcleo hexagonal"]
         direction TB
-        UC1["UC1: ScopeResolver<br/>(application/uc1)"]
+        UC1["UC1: ScopeResolver<br/>(application/scope)"]
         subgraph pipeline["Pipeline interno (bucle por commit)"]
             direction LR
             P1["DiffExtractor<br/>Δ"] --> P2["StructuralAnalyzer<br/>AST → Sᵢ"] --> P3["DiagramGenerator<br/>UML"]
         end
-        UC5["UC5: EvolutionComparer<br/>(application/uc5)"]
+        UC5["UC5: EvolutionComparer<br/>(application/evolution)"]
         ports["Ports<br/>GitSourcePort · ParserPort<br/>RendererPort · StorePort"]
         dominio["Domain<br/>RepoScope · CommitDelta<br/>StructuralChange · Sᵢ · DiagramSpec"]
     end
@@ -64,9 +64,9 @@ ddv/
 │   ├── model/               #   RepoScope, CommitDelta, StructuralChange, DiagramSpec
 │   └── exception/           #   ScopeException, DiffException...
 ├── application/             # Casos de uso + pipeline (solo depende de domain y ports)
-│   ├── uc1/                 #   ScopeResolver
+│   ├── scope/               #   ScopeResolver (UC1)
 │   ├── pipeline/            #   DiffExtractor → StructuralAnalyzer → DiagramGenerator
-│   └── uc5/                 #   EvolutionComparer
+│   └── evolution/           #   EvolutionComparer (UC5)
 ├── ports/                   # Interfaces (contrato hexagonal)
 │   ├── GitSourcePort.java
 │   ├── ParserPort.java
@@ -151,8 +151,8 @@ flowchart LR
 
 | Caso de Uso | Ubicación en la arquitectura |
 | :--- | :--- |
-| UC1 Conectar y definir alcance | `application/uc1/ScopeResolver` + `JGitAdapter` (open/resolveRange) |
+| UC1 Conectar y definir alcance | `application/scope/ScopeResolver` + `JGitAdapter` (open/resolveRange) |
 | UC2 Detección de Δ | `application/pipeline/DiffExtractor` |
 | UC3 Análisis estructural | `application/pipeline/StructuralAnalyzer` + `AstParserAdapter` |
 | UC4 Diagrama UML por commit | `application/pipeline/DiagramGenerator` + `MermaidRenderer` |
-| UC5 Comparar evolución global | `application/uc5/EvolutionComparer` + `FileStoreAdapter` |
+| UC5 Comparar evolución global | `application/evolution/EvolutionComparer` + `FileStoreAdapter` |

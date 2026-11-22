@@ -1,7 +1,7 @@
 package ddv.adapters.in.cli;
 
 import ddv.adapters.out.jgit.JGitAdapter;
-import ddv.application.uc1.ScopeResolver;
+import ddv.application.scope.ScopeResolver;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Spec;
