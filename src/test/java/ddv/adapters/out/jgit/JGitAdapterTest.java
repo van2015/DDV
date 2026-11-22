@@ -1,6 +1,7 @@
 package ddv.adapters.out.jgit;
 
 import ddv.domain.exception.ScopeException;
+import ddv.domain.model.Commit;
 import ddv.domain.model.RepoScope;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -90,6 +92,18 @@ class JGitAdapterTest {
                 .isEqualTo(ScopeException.Code.NO_ACCESS);
 
         assertThat(tempCloneDirs()).isEqualTo(clonesBefore);
+    }
+
+    @Test
+    @DisplayName("diff is not implemented until the UC2 pipeline lands")
+    void diffIsNotImplementedYet() throws Exception {
+        var repo = GitFixtures.initRepo(tempDir, "repo");
+        var commit = Commit.of(GitFixtures.commit(repo, "c1", Instant.parse("2026-01-01T00:00:00Z")));
+
+        try (var handle = adapter.open(RepoScope.lastN(repo.toString(), 5))) {
+            assertThatThrownBy(() -> adapter.diff(handle, commit, commit))
+                    .isInstanceOf(UnsupportedOperationException.class);
+        }
     }
 
     private static List<String> tempCloneDirs() throws IOException {

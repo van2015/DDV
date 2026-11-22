@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC1: Conectar y Definir el Alcance del Repositorio
 
-**Estado:** T1–T9 completadas — resto pendiente
+**Estado:** T1–T10 completadas — **UC1 completa**
 **Stack:** Java 25+, Maven, JGit, picocli, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 
@@ -27,7 +27,19 @@ Seleccionar fuente (local/remota), especificar rango de análisis (`commit A..B`
 | **T7** | ✅ Validaciones y errores | `domain/exception` | Repo inexistente/sin acceso, commits inexistentes, `A` no ancestro de `B`, rango vacío → `ScopeException` con mensajes claros | Matriz de códigos en `docs/class-diagram.md`; tests nuevos: `CommitDeltaTest` (5), archivo como repo → `REPO_NOT_FOUND`, handle ajeno → `INVALID_ARGUMENT`; mensajes auditados ✅ |
 | **T8** | ✅ CLI (adaptador de entrada) | `adapters/in/cli` | Comando picocli: `ddv analyze --repo <ruta\|URL> --range A..B \| --last N` → llama a `ScopeResolver` | `AnalyzeCommand` (`Callable<Integer>`, ArgGroup exclusivo, salida por writers de picocli) + `DdvCommand` (raíz/composición, `main`); exit 0/1/2; 8 tests ✅ |
 | **T9** | ✅ Salida hacia UC2 | `application`, `domain` | Garantizar que `AnalysisScope` es el contrato que consumirá el bucle UC2→UC3→UC4 | Interfaz estable — javadoc de contrato con las 3 garantías; +4 tests de contrato en `AnalysisScopeTest` (instancias, pares inmutables, `source`, igualdad por valor) y `GitSourcePortContractTest` (bucle `open → diff → close` con puerto falso) ✅ |
-| **T10** | Pruebas y QA | `src/test` | Unitarias del dominio y `ScopeResolver` con `GitSourcePort` mockeado (Mockito); integración con repos JGit temporales (fixtures); E2E del comando CLI | Cobertura ≥ 80% en `application/uc1` y `adapters/out/jgit` |
+| **T10** | ✅ Pruebas y QA | `src/test` | Unitarias del dominio y `ScopeResolver` con `GitSourcePort` mockeado (Mockito); integración con repos JGit temporales (fixtures); E2E del comando CLI | 56 tests; `DdvCommandE2ETest` (CLI real + JGit real sobre `@TempDir`); JaCoCo 0.8.16 con **gate ≥80% líneas por paquete** en `mvn test` — ver métricas abajo ✅ |
+
+### Métricas de cobertura (JaCoCo, 2026-11-23)
+
+| Paquete | Instrucciones | Líneas | Objetivo ≥80% |
+| :--- | :--- | :--- | :--- |
+| `ddv.application.uc1` | 100,0% | 100,0% | ✅ |
+| `ddv.adapters.out.jgit` | 91,0% | 89,5% | ✅ |
+| `ddv.adapters.in.cli` | 92,9% | 91,7% | ✅ |
+| `ddv.domain.model` | 99,1% | 100,0% | ✅ |
+| `ddv.domain.exception` | 100,0% | 100,0% | ✅ |
+
+El *gate* (`jacoco:check`, regla `PACKAGE ≥ 0.80` líneas) se ejecuta en la fase `test` de todo `mvn clean test` y **rompe el build** si un paquete baja del umbral (verificado: a 0.99 falla con `Rule violated for package …`). Reporte HTML/CSV en `target/site/jacoco/`.
 
 ---
 

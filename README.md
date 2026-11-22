@@ -30,3 +30,16 @@ export PATH="$JAVA_HOME/bin:$PATH"
 mvn clean test-compile
 mvn clean test
 ```
+
+`mvn clean test` genera el informe de cobertura en `target/site/jacoco/index.html` y **falla si algún paquete baja del 80% de líneas** (gate JaCoCo de `pom.xml`, regla `PACKAGE ≥ 0.80`).
+
+## Uso (UC1)
+
+```bash
+mvn -q dependency:build-classpath -Dmdep.outputFile=target/cp.txt
+java -cp "target/classes:$(cat target/cp.txt)" ddv.adapters.in.cli.DdvCommand \
+    analyze --repo <ruta|URL> --last 10          # últimos N commits
+# ... analyze --repo <ruta|URL> --range A..B     # rango inclusivo (A ancestro de B)
+```
+
+Códigos de salida: `0` ok · `1` error de alcance (`ScopeException`) · `2` error de uso de la CLI.
