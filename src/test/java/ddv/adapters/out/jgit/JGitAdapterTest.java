@@ -54,6 +54,17 @@ class JGitAdapterTest {
     }
 
     @Test
+    @DisplayName("Local path pointing to a regular file throws REPO_NOT_FOUND")
+    void localFilePathThrowsRepoNotFound() throws IOException {
+        var file = Files.createFile(tempDir.resolve("not-a-repo.txt"));
+
+        assertThatThrownBy(() -> adapter.open(RepoScope.lastN(file.toString(), 1)))
+                .isInstanceOf(ScopeException.class)
+                .extracting(e -> ((ScopeException) e).code())
+                .isEqualTo(ScopeException.Code.REPO_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("Remote file:// URL clones into a temp workspace cleaned up on close")
     void remoteCloneCleansUpWorkspaceOnClose() throws Exception {
         var source = GitFixtures.initRepoWithSingleCommit(tempDir, "source-repo");

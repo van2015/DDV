@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-22 — estado tras T6 (`ScopeResolver`).
+> **Última actualización:** 2026-11-22 — estado tras T7 (validaciones y errores).
 
 ---
 
@@ -188,13 +188,23 @@ classDiagram
 - **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**; `diff()` sigue pendiente hasta UC2.
 - **`ScopeResolver` (T6)** orquesta `open → resolveRange → close` con *try-with-resources* mediante inyección de `GitSourcePort`; no conoce JGit ni valida directamente (validan dominio y adaptador).
 - **`Code`** está anidado en `ScopeException` (`ScopeException.Code`).
+
+### Matriz de validaciones (T7)
+
+| Código | Origen | Causa |
+| :--- | :--- | :--- |
+| `INVALID_ARGUMENT` | `RepoScope` / `AnalysisScope` / `JGitAdapter` | `n ≤ 0`, origen/destino en blanco, `Commits` vacío, par con mismo commit, handle ajeno |
+| `REPO_NOT_FOUND` | `JGitAdapter.open` (local) | ruta inexistente, directorio no-git, ruta que no es directorio |
+| `NO_ACCESS` | `JGitAdapter.open` (remoto) / `resolveRange` | fallo de clone o red; errores inesperados al resolver el rango |
+| `COMMIT_NOT_FOUND` | `JGitAdapter.resolveRange` | extremo `A` o `B` inexistente (resuelto o `MissingObjectException`) |
+| `NOT_ANCESTOR` | `JGitAdapter.resolveRange` | `A` no es ancestro de `B` (`isMergedInto`) |
+| `EMPTY_RANGE` | `AnalysisScope` / `JGitAdapter` | lista vacía, único commit o `A == B`; HEAD sin crear |
 - **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| T7 | validaciones completas de `ScopeException` |
 | T8 | `adapters/in/cli/AnalyzeCommand` (picocli) |
 | UC2 | `JGitAdapter.diff()` (Δ entre commits consecutivos) |
 | UC3 | `ParserPort`, `AstParserAdapter`, `StructuralChange` |

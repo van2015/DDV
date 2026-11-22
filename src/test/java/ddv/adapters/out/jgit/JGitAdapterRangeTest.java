@@ -120,6 +120,20 @@ class JGitAdapterRangeTest {
     }
 
     @Test
+    @DisplayName("resolveRange with a foreign handle throws INVALID_ARGUMENT")
+    void foreignHandleThrowsInvalidArgument() throws Exception {
+        var repo = GitFixtures.initRepo(tempDir, "repo");
+        GitFixtures.commit(repo, "c1", T1);
+        var scope = RepoScope.lastN(repo.toString(), 5);
+        ddv.ports.RepositoryHandle foreign = () -> { };
+
+        assertThatThrownBy(() -> adapter.resolveRange(foreign, scope))
+                .isInstanceOf(ScopeException.class)
+                .extracting(e -> ((ScopeException) e).code())
+                .isEqualTo(ScopeException.Code.INVALID_ARGUMENT);
+    }
+
+    @Test
     @DisplayName("Empty repository throws EMPTY_RANGE")
     void emptyRepositoryThrowsEmptyRange() throws Exception {
         var repo = GitFixtures.initRepo(tempDir, "empty");
