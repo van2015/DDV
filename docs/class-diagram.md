@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-21 — estado tras T4 (`JGitAdapter`).
+> **Última actualización:** 2026-11-22 — estado tras T5 (`resolveRange`).
 
 ---
 
@@ -173,7 +173,7 @@ classDiagram
 - **`Commit` no tiene `delta()`:** la Δ se calcula en el adaptador vía `GitSourcePort.diff()`; el dominio solo ensambla `CommitDelta` (discusión 2026-11-21 — evita que `Commit` dependa de infraestructura).
 - **`RepositoryHandle` es opaco:** su implementación real es `JGitHandle` (clase interna privada de `JGitAdapter`); maneja `Git` y limpia el workspace temporal del clon en `close()`.
 - **`JGitAdapter` traduce errores** de JGit a `ScopeException` (`REPO_NOT_FOUND` en local, `NO_ACCESS` en remoto).
-- **`resolveRange()` y `diff()`** lanzan `UnsupportedOperationException` hasta T5 (rango) y UC2 (Δ) respectivamente.
+- **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**; `diff()` sigue pendiente hasta UC2.
 - **`Code`** está anidado en `ScopeException` (`ScopeException.Code`).
 - **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 
@@ -181,7 +181,6 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| T5 | `JGitAdapter.resolveRange()` (rango `A..B` / últimos N vía `RevWalk`) |
 | T6 | `application/uc1/ScopeResolver` |
 | T7 | validaciones completas de `ScopeException` |
 | T8 | `adapters/in/cli/AnalyzeCommand` (picocli) |

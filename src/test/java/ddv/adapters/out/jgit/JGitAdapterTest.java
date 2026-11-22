@@ -2,8 +2,6 @@ package ddv.adapters.out.jgit;
 
 import ddv.domain.exception.ScopeException;
 import ddv.domain.model.RepoScope;
-import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.lib.PersonIdent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -28,7 +26,7 @@ class JGitAdapterTest {
     @Test
     @DisplayName("Opening an existing local repository returns a closable handle")
     void openLocalRepositoryReturnsClosableHandle() throws Exception {
-        var repo = initEmptyRepo("local-repo");
+        var repo = GitFixtures.initRepo(tempDir, "local-repo");
 
         try (var handle = adapter.open(RepoScope.lastN(repo.toString(), 5))) {
             assertThat(handle).isNotNull();
@@ -58,7 +56,7 @@ class JGitAdapterTest {
     @Test
     @DisplayName("Remote file:// URL clones into a temp workspace cleaned up on close")
     void remoteCloneCleansUpWorkspaceOnClose() throws Exception {
-        var source = initRepoWithCommit("source-repo");
+        var source = GitFixtures.initRepoWithSingleCommit(tempDir, "source-repo");
         var clonesBefore = tempCloneDirs();
 
         try (var handle = adapter.open(RepoScope.lastN(source.toUri().toString(), 5))) {
@@ -81,28 +79,6 @@ class JGitAdapterTest {
                 .isEqualTo(ScopeException.Code.NO_ACCESS);
 
         assertThat(tempCloneDirs()).isEqualTo(clonesBefore);
-    }
-
-    private Path initEmptyRepo(String name) throws Exception {
-        var dir = Files.createDirectory(tempDir.resolve(name));
-        try (var git = Git.init().setDirectory(dir.toFile()).call()) {
-            return dir;
-        }
-    }
-
-    private Path initRepoWithCommit(String name) throws Exception {
-        var dir = initEmptyRepo(name);
-        Files.writeString(dir.resolve("README.md"), "# fixture");
-        try (var git = Git.open(dir.toFile())) {
-            git.add().addFilepattern(".").call();
-            var identity = new PersonIdent("ddv-test", "ddv-test@example.com");
-            git.commit()
-                    .setMessage("initial commit")
-                    .setAuthor(identity)
-                    .setCommitter(identity)
-                    .call();
-        }
-        return dir;
     }
 
     private static List<String> tempCloneDirs() throws IOException {
