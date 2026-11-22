@@ -74,6 +74,47 @@ class AnalysisScopeTest {
     }
 
     @Test
+    @DisplayName("Pairs reference the very same Commit instances of the range")
+    void pairsReferenceTheSameCommitInstances() {
+        var commits = List.of(commit("c1"), commit("c2"), commit("c3"));
+        var scope = new AnalysisScope(SOURCE, commits);
+
+        var pairs = scope.consecutivePairs();
+
+        assertThat(pairs.get(0).previous()).isSameAs(commits.get(0));
+        assertThat(pairs.get(0).current()).isSameAs(commits.get(1));
+        assertThat(pairs.get(1).previous()).isSameAs(commits.get(1));
+        assertThat(pairs.get(1).current()).isSameAs(commits.get(2));
+    }
+
+    @Test
+    @DisplayName("The pairs list is immutable")
+    void pairsListIsImmutable() {
+        var scope = new AnalysisScope(SOURCE, List.of(commit("c1"), commit("c2")));
+
+        assertThatThrownBy(() -> scope.consecutivePairs().add(null))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("The source scope is preserved for traceability")
+    void sourceIsPreservedForTraceability() {
+        var scope = new AnalysisScope(SOURCE, List.of(commit("c1")));
+
+        assertThat(scope.source()).isEqualTo(SOURCE);
+        assertThat(scope.source().range()).isEqualTo(new RepoScope.Range.LastN(3));
+    }
+
+    @Test
+    @DisplayName("Scopes are compared by value so UC5 can deduplicate them")
+    void scopesAreComparedByValue() {
+        var first = new AnalysisScope(SOURCE, List.of(commit("c1"), commit("c2")));
+        var second = new AnalysisScope(SOURCE, List.of(commit("c1"), commit("c2")));
+
+        assertThat(first).isEqualTo(second).hasSameHashCodeAs(second);
+    }
+
+    @Test
     @DisplayName("A single commit yields no pairs")
     void singleCommitYieldsNoPairs() {
         var scope = new AnalysisScope(SOURCE, List.of(commit("c1")));

@@ -107,11 +107,13 @@ Prohibido: `domain` importando de `application`, `ports` o `adapters`; `applicat
 
 ```java
 public interface GitSourcePort {
-    Repository open(RepoScope scope);
-    List<Commit> resolveRange(RepoScope scope);        // C₁..Cₙ
-    CommitDelta diff(Commit previous, Commit current); // Δ por commit
+    RepositoryHandle open(RepoScope scope);                        // AutoCloseable opaco
+    AnalysisScope resolveRange(RepositoryHandle repo, RepoScope scope); // C₁..Cₙ
+    CommitDelta diff(RepositoryHandle repo, Commit previous, Commit current); // Δ por commit
 }
 ```
+
+> `RepositoryHandle` es opaco a propósito: el núcleo nunca ve tipos de JGit.
 
 ---
 
@@ -130,6 +132,7 @@ flowchart LR
 
 - Cada etapa es una clase con **un solo método** y depende solo de puertos → testeable con mocks (Mockito) sin Git ni disco.
 - El `StorePort` materializa la "acumulación de datos" que UC5 requiere (su `«include»` sobre UC4).
+- **Contrato de entrada del bucle (T9):** `AnalysisScope` es estable — orden ascendente, inmutabilidad y `consecutivePairs()` en el mismo orden; bloqueado por `AnalysisScopeTest` y `GitSourcePortContractTest` (cabecera del bucle contra un puerto falso).
 
 ---
 

@@ -10,7 +10,12 @@ import java.util.Objects;
  * entrada del bucle UC2 → UC3 → UC4.
  *
  * <p>Lista inmutable y ordenada cronológicamente (del más antiguo al más
- * reciente), tal como la consume el pipeline.</p>
+ * reciente), tal como consume el pipeline.</p>
+ *
+ * <p><b>Contrato estable:</b> UC2–UC4 se apoyan en tres garantías que no deben
+ * cambiar sin actualizar el pipeline — orden ascendente, inmutabilidad de la
+ * lista y {@link #consecutivePairs()} devolviendo los pares en el mismo orden
+ * (bloqueadas por {@code AnalysisScopeTest} y {@code GitSourcePortContractTest}).</p>
  *
  * @param source  alcance del que deriva el rango (trazabilidad)
  * @param commits commits del rango, orden $C_1..C_n$ (no vacío)
