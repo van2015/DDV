@@ -108,7 +108,6 @@ classDiagram
 | # | Refactorización | Dónde | Gatillo |
 | :--- | :--- | :--- | :--- |
 | **R1** | `SourceLocation` sellado (`LocalPath` \| `RemoteUrl`) en vez de `String location` + `isRemote()`, que recompila dos regex con `String.matches()` en cada `open()` | `RepoScope`, `JGitAdapter.open` | tocar `RepoScope` (p. ej. nuevas formas de remoto); hoy el *heuristic* vive en el dominio |
-| **R2** | Base `DdvException<C extends Enum<C>>` para `ScopeException` / `DiffException` (mismo esqueleto: enum `Code`, dos constructores, `code()`) | `domain/exception` | solo si aparece una **tercera** excepción tipada — la separación actual es intencionada |
 | **R3** | Constantes y fakes de test: `Instant.T1..T5` duplicados en 4 clases, dos `GitSourcePort` falsos idénticos, literal `"ddv-clone-"` en main y test | `src/test` | al tocar esos tests |
 | **R4** | `AnalyzeCommand`: separador `".."` como constante (aparece 3 veces: split, render y mensaje); `AnalyzeCommandTest`: exit code de uso vía `CommandLine.ExitCode.USAGE` en vez del literal `2` | `adapters/in/cli` | al tocar la CLI |
 | **R5** | `HexagonalArchitectureTest` con ArchUnit (hoy escanea `.class` como strings ISO-8859-1: falso positivo si una constante contiene `picocli`, falso negativo en dependencias indirectas) + FQCN inline (`new java.util.ArrayList` en `AnalysisScope.consecutivePairs()`) | `architecture` test, `AnalysisScope` | al ampliar las reglas de arquitectura |
@@ -122,7 +121,7 @@ No es deuda: es el mapa de **dónde podría aparecer un subtipo nuevo** y, por t
 | # | Ubicación | Qué comprueba | ¿Punto de extensión? | Riesgo de `switch` futuro |
 | :--- | :--- | :--- | :--- | :--- |
 | **E1** | `JGitAdapter.jgitHandleOf` → `instanceof JGitHandle` | Propiedad del handle en una frontera opaca | **No.** Es de *propiedad*, no de *despacho*: cada adaptador valida el suyo y solo hay un subtipo — no puede crecer en cadena `if/else` | Ninguno |
-| **E2** | `JGitAdapter.noAccess` → `instanceof ScopeException` | Conservar el fallo ya tipado, envolver lo inesperado | **No.** `ScopeException` es hoja del árbol; estable salvo que cambie la taxonomía (R2) | Ninguno |
+| **E2** | `JGitAdapter.noAccess` → `instanceof ScopeException` | Conservar el fallo ya tipado, envolver lo inesperado | **No.** `ScopeException` es hoja del árbol; la taxonomía son tres excepciones independientes sin jerarquía, estable salvo que eso cambie | Ninguno |
 | **E3** | `JGitAdapter.ioError` → `instanceof DiffException` | Ídem, para el UC2 | Ídem | Ninguno |
 | **E4** | `AnalyzeCommand.describe` — `switch` sobre `RepoScope.Range` (**sellado**) | Renderizar el rango en la CLI | **Sí.** Aparecer un `Range.Since(date)` o `Range.Branch(name)` obliga a tocarlo | **Bajo:** sin `default`, javac falla al compilar — nunca en runtime |
 | **E5** | `JGitAdapter.resolveRange` — `switch` sobre `RepoScope.Range` | Resolver los commits del rango | **Sí — el mismo subtipo que E4, en otra capa** | **Bajo:** ídem |

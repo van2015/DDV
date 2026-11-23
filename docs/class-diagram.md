@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados).
+> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados). **UC3 U3T1–U3T3:** `CodeStructure`, `StructuralChange` (Sᵢ) y `ParseException`.
 
 ---
 
@@ -88,6 +88,71 @@ classDiagram
         +size() int
     }
 
+    class CodeStructure {
+        <<record>>
+        +List~String~ imports
+        +List~ClassStructure~ classes
+    }
+
+    class ClassStructure {
+        <<nested: CodeStructure>>
+        +String name
+        +ClassKind kind
+        +List~String~ superTypes
+        +List~MemberStructure~ members
+        +List~String~ typeUsages
+    }
+
+    class MemberStructure {
+        <<nested: CodeStructure>>
+        +String name
+        +MemberKind kind
+        +List~String~ parameterTypes
+    }
+
+    class ClassKind {
+        <<enumeration: CodeStructure.ClassKind>>
+        CLASS
+        INTERFACE
+        ENUM
+        RECORD
+        ANNOTATION
+    }
+
+    class MemberKind {
+        <<enumeration: CodeStructure.MemberKind>>
+        METHOD
+        FIELD
+    }
+
+    class StructuralChange {
+        <<record: Sᵢ>>
+        +List~FileStructureChange~ files
+    }
+
+    class FileStructureChange {
+        <<nested: StructuralChange>>
+        +String path
+        +List~ClassChange~ classes
+    }
+
+    class ClassChange {
+        <<nested: StructuralChange>>
+        +String name
+        +ChangeKind kind
+        +List~MemberStructure~ addedMembers
+        +List~MemberStructure~ removedMembers
+        +List~String~ addedDependencies
+        +List~String~ removedDependencies
+    }
+
+    class ChangeKind {
+        <<enumeration: StructuralChange.ChangeKind>>
+        ADDED
+        MODIFIED
+        REMOVED
+    }
+
     class ScopeException {
         <<exception>>
         -Code code
@@ -117,6 +182,20 @@ classDiagram
         INVALID_ARGUMENT
         IO_ERROR
         UNSUPPORTED
+    }
+
+    class ParseException {
+        <<exception>>
+        -Code code
+        +ParseException(Code code, String message)
+        +code() Code
+        +requireNotBlank(String value, String message)$ void
+    }
+
+    class ParseCode {
+        <<enumeration: ParseException.Code>>
+        SYNTAX_ERROR
+        INVALID_INPUT
     }
 
     class GitSourcePort {
@@ -220,10 +299,22 @@ classDiagram
     Range <|.. LastN : implements
     ScopeException "1" *-- "1" Code : code
     DiffException "1" *-- "1" DiffCode : code
+    ParseException "1" *-- "1" ParseCode : code
 
     %% Secuencia de Δ — salida del UC2 (U2T1)
     DeltaSequence "1" *-- "1" AnalysisScope : source (trazabilidad)
     DeltaSequence "1" *-- "0..*" CommitDelta : deltas (una por par)
+
+    %% Modelos de estructura — salida del UC3 (U3T1)
+    CodeStructure "1" *-- "0..*" ClassStructure : classes
+    ClassStructure "1" *-- "0..*" MemberStructure : members
+    ClassStructure "1" --> "1" ClassKind : kind
+    MemberStructure "1" --> "1" MemberKind : kind
+    StructuralChange "1" *-- "0..*" FileStructureChange : files (Sᵢ)
+    FileStructureChange "1" *-- "0..*" ClassChange : classes
+    ClassChange "1" --> "1" ChangeKind : kind
+    ClassChange "1" *-- "0..*" MemberStructure : added / removed members
+    StructuralChange ..> CommitDelta : trazabilidad con el Δ
 
     %% El puerto depende solo de tipos de dominio
     GitSourcePort ..> RepoScope : open(), resolveRange()
@@ -268,6 +359,8 @@ classDiagram
     AnalysisScope ..> ScopeException : throws (EMPTY_RANGE)
     CommitDelta ..> DiffException : throws (INVALID_ARGUMENT)
     DeltaSequence ..> DiffException : throws (alineación)
+    CodeStructure ..> ParseException : throws (INVALID_INPUT)
+    StructuralChange ..> ParseException : throws (INVALID_INPUT)
 ```
 
 ---
@@ -295,9 +388,11 @@ classDiagram
 - **`AnalysisScope` es contrato estable (T9):** UC2–UC4 se apoyan en orden ascendente, inmutabilidad y `consecutivePairs()` en el mismo orden. Bloqueado por `AnalysisScopeTest` (instancias idénticas, pares inmutables, trazabilidad `source`, igualdad por valor) y `GitSourcePortContractTest` (reproduce la cabecera del bucle `open → diff(par) → close` contra un puerto falso).
 - **`DeltaSequence` es contrato de salida de UC2 (U2T1):** una Δ por par, alineada 1:1 y en el mismo orden que `consecutivePairs()` (el invariante se valida en el constructor → `DiffException`), inmutable y trazable al `AnalysisScope` de origen; UC3 la recorre sin código adhesivo. Bloqueado por `DeltaSequenceTest` y `DeltaSequenceContractTest` (U2T6: alimenta a un analizador falso con (par, Δ) y verifica `relevantChanges()`).
 - **`DiffException` (U2T2)** separa los fallos de detección de Δ de `ScopeException` (alcance, UC1): `FileChange` migró a ella. Cada excepción nombra la preocupación que representa.
+- **`CodeStructure` y `StructuralChange` (U3T1)** son los modelos de UC3: el parser produce una instantánea neutra por archivo (`imports`, clases con sus miembros, `superTypes` y `typeUsages`) y el caso de uso **resta** la versión vieja contra la nueva para producir $S_i$ por archivo. En `ClassChange`, una clase `ADDED` lista todos sus miembros en `addedMembers` (y viceversa en `REMOVED`); las dependencias siguen la decisión 4: `import` + `extends`/`implements` + tipos de firmas y cuerpos, **sin resolución de símbolos** (por nombre, desambiguado con los `import` locales).
+- **`ParseException` (U3T3)** es la tercera excepción tipada: `SYNTAX_ERROR` (sintaxis) e `INVALID_INPUT` (textos en blanco, vía el validador estático `requireNotBlank`).
 - **`SourceFileFilter` (U2T4)** decide qué archivos del Δ parsea UC3, pero solo por **extensión** (`.java` para el MVP; configurable, p. ej. `.py`): la relevancia estructural real la determina UC3 sobre el AST. Es inyectable para que el lenguaje no esté cableado en el pipeline. El constructor **normaliza** las extensiones (minúsculas, para que la coincidencia `endsWith` sea insensible a mayúsculas en ambos lados) y **valida** que lleven punto (`INVALID_ARGUMENT` en caso contrario); las que solo difieren en mayúsculas se deduplican.
 - **`DiffExtractor` (U2T5)** es el caso de uso UC2: `open → diff(par) → close` sobre `consecutivePairs()`, ensamblando `DeltaSequence` (el invariante de alineación del record detecta un puerto que devuelva Δs fuera de orden). `relevantChanges()` entrega a UC3 la lista plana de archivos analizables, en orden de aparición.
-- **`Code`** está anidado en `ScopeException`; `DiffException` tiene el suyo propio (representado como `DiffCode` para no colisionar en el diagrama).
+- **`Code`** está anidado en `ScopeException`; `DiffException` y `ParseException` tienen el suyo propio (representados como `DiffCode` y `ParseCode` para no colisionar en el diagrama).
 - **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
 ### Matriz de validaciones (T7)
@@ -319,10 +414,17 @@ classDiagram
 | `IO_ERROR` | `JGitAdapter.diff` | commit inexistente en el repositorio o fallo de lectura al comparar árboles |
 | `UNSUPPORTED` | `JGitAdapter.diff` | tipo de cambio `COPY` (no soportado por el MVP) |
 
+### Matriz de validaciones — `ParseException` (U3T3)
+
+| Código | Origen | Causa |
+| :--- | :--- | :--- |
+| `INVALID_INPUT` | `CodeStructure` / `StructuralChange` | nombre de clase, miembro o ruta en blanco (`requireNotBlank`) |
+| `SYNTAX_ERROR` | `AstParserAdapter` *(previsto U3T4)* | el código fuente tiene errores de sintaxis |
+
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC3 | `ParserPort`, `AstParserAdapter`, `StructuralChange` |
+| UC3 (U3T2, U3T4–U3T5) | `GitSourcePort.content()`, `ParserPort`, `AstParserAdapter`, `StructuralAnalyzer` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |

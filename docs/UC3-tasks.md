@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC3: Analizar Estructura Cambiada por Commit
 
-**Estado:** por iniciar (0/8) — decisiones tomadas (ver abajo)
+**Estado:** U3T1 y U3T3 completadas (2/8)
 **Stack:** Java 25+, Maven, JGit, **JavaParser**, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesoras:** UC1 (`docs/UC1-tasks.md`) y UC2 (`docs/UC2-tasks.md`) completas · numeración `U3Tn`
@@ -59,9 +59,9 @@ de UC2, alineado con él.
 
 | # | Tarea | Paquete hexagonal | Descripción | Entregable |
 | :--- | :--- | :--- | :--- | :--- |
-| **U3T1** | Modelos de estructura | `domain/model` | Tipos inmutables para lo que parsea y para $S_i$: clases, miembros, **dependencias (referencias de tipo completas)** y sus altas/bajas | `CodeStructure` + `StructuralChange` (y anidados) + tests de contrato |
+| **U3T1** | ✅ Modelos de estructura | `domain/model` | Tipos inmutables para lo que parsea y para $S_i$: clases, miembros, **dependencias (referencias de tipo completas)** y sus altas/bajas | `CodeStructure` (con `ClassStructure`, `MemberStructure`, `ClassKind`, `MemberKind`) + `StructuralChange` (con `FileStructureChange`, `ClassChange`, `ChangeKind`) + `CodeStructureTest` y `StructuralChangeTest` (12 tests) ✅ |
 | **U3T2** | Acceso a contenido | `ports`, `adapters/out/jgit` | Leer el blob de un archivo **en un commit concreto** (versión vieja y nueva de cada Δ) | `GitSourcePort.content(...)` + implementación JGit + tests (contenido en commit, archivo ausente, handle ajeno) |
-| **U3T3** | Excepción de parseo | `domain/exception` | Errores de sintaxis sin mezclarlos con `ScopeException` ni `DiffException` | `ParseException` + matriz en `docs/class-diagram.md` + tests |
+| **U3T3** | ✅ Excepción de parseo | `domain/exception` | Errores de sintaxis sin mezclarlos con `ScopeException` ni `DiffException` | `ParseException` (`SYNTAX_ERROR`/`INVALID_INPUT`) + validador estático `requireNotBlank` + `DdvAssertions.assertParseThrows` + matriz en `docs/class-diagram.md` ✅ |
 | **U3T4** | Puerto y adaptador AST | `ports`, `adapters/out/ast` | `ParserPort.parse(código) → CodeStructure` con **JavaParser**, recolectando clases, miembros y **referencias de tipo** (imports, herencia y usos en firmas/cuerpos) | `ParserPort`, `AstParserAdapter` + tests (clases/interface/enum/record, anidamiento, métodos, campos, imports, extends/implements, tipos en firmas/cuerpos, error de sintaxis) |
 | **U3T5** | Caso de uso StructuralAnalyzer | `application/pipeline` | Por cada Δ: abre el repo, lee contenidos viejo/nuevo de los `.java`, parsea ambos y **resta** estructuras → $S_i$ por par | `StructuralAnalyzer` + tests con puertos mockeados |
 | **U3T6** | Contrato hacia UC4 | `application/pipeline` | Garantizar que UC4 recibirá $S_i$ completo (clases, métodos añadidos, dependencias nuevas) sin código adhesivo | contract test estilo T9 + garantías en javadoc |
