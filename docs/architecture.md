@@ -132,6 +132,7 @@ flowchart LR
 ```
 
 - **Implementado (UC2):** `SourceFileFilter` y `DiffExtractor` (U2T4–U2T5) con `JGitAdapter.diff()` (U2T3). La salida hacia UC3 es `DeltaSequence` —una Δ por par, alineada con `consecutivePairs()`— más `relevantChanges()` (solo ficheros `.java`); ambos contratos están bloqueados por `DeltaSequenceContractTest`.
+- **Implementado (UC3):** `StructuralAnalyzer` (U3T5) consume esa salida con `content()` + `ParserPort` y produce `StructuralSequence` —un $S_i$ por Δ, alineado con su procedencia—; la resta pura vive en `FileStructureChange.between(before, after)`. Falta UC4 para dibujar.
 - Cada etapa es una clase con **un solo método** y depende solo de puertos → testeable con mocks (Mockito) sin Git ni disco.
 - El `StorePort` materializa la "acumulación de datos" que UC5 requiere (su `«include»` sobre UC4).
 - **Contrato de entrada del bucle (T9):** `AnalysisScope` es estable — orden ascendente, inmutabilidad y `consecutivePairs()` en el mismo orden; bloqueado por `AnalysisScopeTest` y `GitSourcePortContractTest` (cabecera del bucle contra un puerto falso).

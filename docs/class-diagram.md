@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados). **UC3 U3T1–U3T4:** `CodeStructure`, `StructuralChange` (Sᵢ), `ParseException`, `GitSourcePort.content()` (U3T2) y `ParserPort` + `AstParserAdapter` (U3T4).
+> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados). **UC3 U3T1–U3T5:** `CodeStructure`, `StructuralChange`/`StructuralSequence` (Sᵢ), `ParseException`, `GitSourcePort.content()` (U3T2), `ParserPort` + `AstParserAdapter` (U3T4) y `StructuralAnalyzer` (U3T5).
 
 ---
 
@@ -127,7 +127,15 @@ classDiagram
 
     class StructuralChange {
         <<record: Sᵢ>>
+        +CommitDelta delta
         +List~FileStructureChange~ files
+    }
+
+    class StructuralSequence {
+        <<record>>
+        +DeltaSequence source
+        +List~StructuralChange~ changes
+        +size() int
     }
 
     class FileStructureChange {
@@ -284,6 +292,18 @@ classDiagram
         +relevantChanges(DeltaSequence sequence) List~FileChange~
     }
 
+    class StructuralAnalyzer {
+        <<use case: pipeline (UC3)>>
+        -GitSourcePort gitSourcePort
+        -ParserPort parserPort
+        -SourceFileFilter sourceFileFilter
+        +StructuralAnalyzer(GitSourcePort gitSourcePort, ParserPort parserPort, SourceFileFilter sourceFileFilter)
+        +analyze(DeltaSequence sequence) StructuralSequence
+        -analyzeDelta(RepositoryHandle handle, CommitDelta delta) StructuralChange
+        -analyzeFile(RepositoryHandle handle, CommitDelta delta, FileChange change) FileStructureChange
+        -structureAt(RepositoryHandle handle, Commit commit, String path) CodeStructure
+    }
+
     class AnalyzeCommand {
         <<adapter: in/cli>>
         +AnalyzeCommand(ScopeResolver scopeResolver)
@@ -324,16 +344,20 @@ classDiagram
     DeltaSequence "1" *-- "1" AnalysisScope : source (trazabilidad)
     DeltaSequence "1" *-- "0..*" CommitDelta : deltas (una por par)
 
-    %% Modelos de estructura — salida del UC3 (U3T1)
+    %% Modelos de estructura — salida del UC3 (U3T1, U3T5)
     CodeStructure "1" *-- "0..*" ClassStructure : classes
     ClassStructure "1" *-- "0..*" MemberStructure : members
     ClassStructure "1" --> "1" ClassKind : kind
     MemberStructure "1" --> "1" MemberKind : kind
+    StructuralChange "1" *-- "1" CommitDelta : delta (procedencia)
     StructuralChange "1" *-- "0..*" FileStructureChange : files (Sᵢ)
     FileStructureChange "1" *-- "0..*" ClassChange : classes
+    FileStructureChange ..> CodeStructure : between(before, after)
     ClassChange "1" --> "1" ChangeKind : kind
     ClassChange "1" *-- "0..*" MemberStructure : added / removed members
-    StructuralChange ..> CommitDelta : trazabilidad con el Δ
+    StructuralSequence "1" *-- "1" DeltaSequence : source (trazabilidad)
+    StructuralSequence "1" *-- "0..*" StructuralChange : changes (uno por Δ)
+    StructuralSequence ..> DiffException : throws (alineación)
 
     %% El puerto depende solo de tipos de dominio
     GitSourcePort ..> RepoScope : open(), resolveRange()
@@ -370,6 +394,14 @@ classDiagram
     DiffExtractor ..> DeltaSequence : salida (una Δ por par)
     DiffExtractor ..> SourceFileFilter : inyecta el filtro de lenguaje
     DiffExtractor ..> CommitDelta : relevantChanges() para UC3
+
+    %% Caso de uso UC3 (U3T5)
+    StructuralAnalyzer ..> GitSourcePort : usa (inyección)
+    StructuralAnalyzer ..> ParserPort : parsea versión vieja y nueva
+    StructuralAnalyzer ..> SourceFileFilter : inyecta el filtro de lenguaje
+    StructuralAnalyzer ..> DeltaSequence : entrada (contrato de UC2)
+    StructuralAnalyzer ..> StructuralSequence : salida (Sᵢ por Δ)
+    StructuralAnalyzer ..> FileStructureChange : resta las estructuras
 
     %% Adaptador de entrada (T8)
     DdvCommand *-- AnalyzeCommand : registra subcomando
@@ -410,6 +442,7 @@ classDiagram
 - **`diff()` (U2T3)** compara los árboles de `previous` y `current` con `DiffFormatter` (`setDetectRenames(true)`) y mapea `ADD/MODIFY/DELETE` a `ChangeType`; un **rename se emite como `DELETED`(origen) + `ADDED`(destino)** y `COPY` → `UNSUPPORTED`. `DiffCommand` de JGit no expone detección de renames, por eso se usa `DiffFormatter.scan()`.
 - **`content()` (U3T2)** lee el blob de un archivo **en un commit concreto** (`TreeWalk.forPath` + `ObjectLoader`, UTF-8) y devuelve `Optional.empty()` si no existía en ese commit o si la ruta es un directorio — JGit devuelve en ese caso el *árbol*, no `null`, así que se comprueba `getFileMode == OBJ_BLOB` (cubierto por test). Reutiliza `treeOf()` e `ioError()` con `diff()`; es lo que UC3 usa para parsear la versión vieja y la nueva de cada Δ.
 - **`AstParserAdapter` (U3T4)** implementa `ParserPort` con **JavaParser** a nivel `JAVA_25` (sin configurarlo rechaza `record`, que exige ≥14). Produce `CodeStructure` por nombre, **sin resolución de símbolos** (no hay classpath): `superTypes` de `extends`/`implements`, `typeUsages` excluyendo los de clases anidadas y los ya registrados como superTypes, y miembros directos (métodos, constructores, atributos, constantes de enum, componentes de record). El despacho sobre `TypeDeclaration` —jerarquía **abierta de un tercero**— usa `switch` de patrones con `default` que **lanza** (`SYNTAX_ERROR`), no un caso silencioso; los tipos propios van *sealed* sin `default` (reglas de `refactors.md` C).
+- **`StructuralAnalyzer` (U3T5)** es el caso de uso UC3: por cada Δ abre el repo, lee con `content()` la versión vieja y la nueva de cada `.java`, las parsea y delega la resta en `FileStructureChange.between(before, after)` — lógica pura de dominio, testeable sin mocks. **La presencia del contenido** (viejo vacío → clase dada de alta) sustituye a cualquier `switch` sobre `CommitDelta.ChangeType` (la E7 del inventario de `refactors.md` no llegó a materializarse). **`StructuralChange`** lleva ahora su Δ de origen y **`StructuralSequence`** valida la alineación 1:1 (mismo patrón y misma excepción que `DeltaSequence`).
 - **`ScopeResolver` (T6)** orquesta `open → resolveRange → close` con *try-with-resources* mediante inyección de `GitSourcePort`; no conoce JGit ni valida directamente (validan dominio y adaptador).
 - **`AnalyzeCommand` (T8)** es el adaptador de entrada: `Callable<Integer>` de picocli con `@Spec` para escribir por los *writers* de la `CommandLine` (testeable sin capturar `System.out`). Salidas: **exit 0** (ok), **exit 1** (`ScopeException` → `Error [CÓDIGO]: mensaje` por stderr), **exit 2** (errores de uso de picocli: faltan/exclusivas opciones o `--range` sin `..`).
 - **`DdvCommand` (T8)** es la raíz de composición: único punto que junta `JGitAdapter` + `ScopeResolver`; con la raíz sin subcomando imprime la ayuda. El overload `execute(args, out, err)` (T10) es la costura testeable para el E2E: propaga los *writers* a los subcomandos porque picocli no lo hace (cada subcomando tiene su propia `CommandLine`).
@@ -438,7 +471,7 @@ classDiagram
 
 | Código | Origen | Causa |
 | :--- | :--- | :--- |
-| `INVALID_ARGUMENT` | `CommitDelta.FileChange` / `DeltaSequence` / `SourceFileFilter` / `JGitAdapter.diff`, `.content` | ruta en blanco; nº de Δ ≠ nº de pares; Δ fuera de orden respecto a los pares; conjunto de extensiones vacío o extensión sin punto; handle ajeno |
+| `INVALID_ARGUMENT` | `CommitDelta.FileChange` / `DeltaSequence` / `StructuralSequence` / `SourceFileFilter` / `JGitAdapter.diff`, `.content` | ruta en blanco; nº de Δ ≠ nº de pares o Sᵢ fuera de orden respecto a sus Δ; conjunto de extensiones vacío o extensión sin punto; handle ajeno |
 | `IO_ERROR` | `JGitAdapter.diff` / `JGitAdapter.content` | commit inexistente en el repositorio o fallo de lectura (comparar árboles, leer un blob) |
 | `UNSUPPORTED` | `JGitAdapter.diff` | tipo de cambio `COPY` (no soportado por el MVP) |
 
@@ -453,6 +486,5 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC3 (U3T5) | `StructuralAnalyzer` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |

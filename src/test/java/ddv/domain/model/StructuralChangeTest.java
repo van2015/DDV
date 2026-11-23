@@ -13,22 +13,40 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StructuralChangeTest {
 
+    private static final CommitDelta DELTA = new CommitDelta(
+            Commit.of("c1"), Commit.of("c2"), List.of());
+
     private static StructuralChange.ClassChange classChange(String name) {
         return new StructuralChange.ClassChange(name, StructuralChange.ChangeKind.ADDED,
                 List.of(), List.of(), List.of(), List.of());
     }
 
     @Test
+    @DisplayName("A null origin delta throws NullPointerException")
+    void nullDeltaThrowsNullPointerException() {
+        assertThatThrownBy(() -> new StructuralChange(null, List.of()))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("The origin delta is kept for traceability")
+    void originDeltaIsKept() {
+        var change = new StructuralChange(DELTA, List.of());
+
+        assertThat(change.delta()).isEqualTo(DELTA);
+    }
+
+    @Test
     @DisplayName("A null file list throws NullPointerException")
     void nullFilesThrowNullPointerException() {
-        assertThatThrownBy(() -> new StructuralChange(null))
+        assertThatThrownBy(() -> new StructuralChange(DELTA, null))
                 .isInstanceOf(NullPointerException.class);
     }
 
     @Test
     @DisplayName("A file without structure changes is still recorded for traceability")
     void emptyFileListIsAllowed() {
-        assertThat(new StructuralChange(List.of()).files()).isEmpty();
+        assertThat(new StructuralChange(DELTA, List.of()).files()).isEmpty();
     }
 
     @Test
@@ -57,7 +75,7 @@ class StructuralChangeTest {
     void listsAreImmutableDefensiveCopies() {
         var files = new ArrayList<>(List.of(
                 new StructuralChange.FileStructureChange("src/A.java", List.of())));
-        var change = new StructuralChange(files);
+        var change = new StructuralChange(DELTA, files);
 
         files.clear();
 
