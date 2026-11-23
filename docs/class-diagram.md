@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — estado tras U2T1–U2T2 (`DeltaSequence`, `DiffException`).
+> **Última actualización:** 2026-11-23 — estado tras U2T3 (`JGitAdapter.diff()`).
 
 ---
 
@@ -137,6 +137,9 @@ classDiagram
         +diff(RepositoryHandle repository, Commit previous, Commit current) CommitDelta
         -openLocal(String location) RepositoryHandle
         -openRemote(String url) RepositoryHandle
+        -scanChanges(Repository repository, String previousId, String currentId) List~FileChange~
+        -treeOf(RevWalk walk, Repository repository, String id) RevTree
+        -toFileChanges(DiffEntry entry) List~FileChange~
     }
 
     class JGitHandle {
@@ -204,6 +207,7 @@ classDiagram
     RepositoryHandle <|.. JGitHandle : implements
     JGitAdapter *-- JGitHandle : crea en open()
     JGitAdapter ..> ScopeException : traduce errores de infraestructura
+    JGitAdapter ..> DiffException : traduce errores de diff
 
     %% Caso de uso UC1 (T6)
     ScopeResolver ..> GitSourcePort : usa (inyección)
@@ -243,7 +247,8 @@ classDiagram
 - **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 - **`RepositoryHandle` es opaco:** su implementación real es `JGitHandle` (clase interna privada de `JGitAdapter`); maneja `Git` y limpia el workspace temporal del clon en `close()`.
 - **`JGitAdapter` traduce errores** de JGit a `ScopeException` (`REPO_NOT_FOUND` en local, `NO_ACCESS` en remoto).
-- **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**; `diff()` sigue pendiente hasta UC2.
+- **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**.
+- **`diff()` (U2T3)** compara los árboles de `previous` y `current` con `DiffFormatter` (`setDetectRenames(true)`) y mapea `ADD/MODIFY/DELETE` a `ChangeType`; un **rename se emite como `DELETED`(origen) + `ADDED`(destino)** y `COPY` → `UNSUPPORTED`. `DiffCommand` de JGit no expone detección de renames, por eso se usa `DiffFormatter.scan()`.
 - **`ScopeResolver` (T6)** orquesta `open → resolveRange → close` con *try-with-resources* mediante inyección de `GitSourcePort`; no conoce JGit ni valida directamente (validan dominio y adaptador).
 - **`AnalyzeCommand` (T8)** es el adaptador de entrada: `Callable<Integer>` de picocli con `@Spec` para escribir por los *writers* de la `CommandLine` (testeable sin capturar `System.out`). Salidas: **exit 0** (ok), **exit 1** (`ScopeException` → `Error [CÓDIGO]: mensaje` por stderr), **exit 2** (errores de uso de picocli: faltan/exclusivas opciones o `--range` sin `..`).
 - **`DdvCommand` (T8)** es la raíz de composición: único punto que junta `JGitAdapter` + `ScopeResolver`; con la raíz sin subcomando imprime la ayuda. El overload `execute(args, out, err)` (T10) es la costura testeable para el E2E: propaga los *writers* a los subcomandos porque picocli no lo hace (cada subcomando tiene su propia `CommandLine`).
@@ -268,15 +273,15 @@ classDiagram
 
 | Código | Origen | Causa |
 | :--- | :--- | :--- |
-| `INVALID_ARGUMENT` | `CommitDelta.FileChange` / `DeltaSequence` | ruta en blanco; nº de Δ ≠ nº de pares; Δ fuera de orden respecto a los pares |
-| `IO_ERROR` | `JGitAdapter.diff` *(previsto U2T3)* | fallo de lectura al comparar los árboles de `previous` y `current` |
-| `UNSUPPORTED` | `JGitAdapter.diff` *(previsto U2T3)* | tipo de cambio no soportado por el MVP (p. ej. submódulo) |
+| `INVALID_ARGUMENT` | `CommitDelta.FileChange` / `DeltaSequence` / `JGitAdapter.diff` | ruta en blanco; nº de Δ ≠ nº de pares; Δ fuera de orden respecto a los pares; handle ajeno |
+| `IO_ERROR` | `JGitAdapter.diff` | commit inexistente en el repositorio o fallo de lectura al comparar árboles |
+| `UNSUPPORTED` | `JGitAdapter.diff` | tipo de cambio `COPY` (no soportado por el MVP) |
 
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC2 (U2T3–U2T5) | `JGitAdapter.diff()`, `DiffExtractor`, `SourceFileFilter` |
+| UC2 (U2T4–U2T5) | `DiffExtractor`, `SourceFileFilter` |
 | UC3 | `ParserPort`, `AstParserAdapter`, `StructuralChange` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |

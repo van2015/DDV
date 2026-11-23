@@ -1,5 +1,6 @@
 package ddv.adapters.out.jgit;
 
+import ddv.domain.exception.DiffException;
 import ddv.domain.exception.ScopeException;
 import ddv.domain.model.AnalysisScope;
 import ddv.domain.model.Commit;
@@ -8,12 +9,17 @@ import ddv.domain.model.RepoScope;
 import ddv.ports.GitSourcePort;
 import ddv.ports.RepositoryHandle;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.diff.DiffEntry;
+import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.errors.IncorrectObjectTypeException;
 import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.util.io.DisabledOutputStream;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -166,7 +172,62 @@ public class JGitAdapter implements GitSourcePort {
 
     @Override
     public CommitDelta diff(RepositoryHandle repository, Commit previous, Commit current) {
-        throw new UnsupportedOperationException("diff se implementa en el pipeline UC2");
+        if (!(repository instanceof JGitHandle handle)) {
+            throw new DiffException(DiffException.Code.INVALID_ARGUMENT,
+                    "Handle de repositorio no soportado por JGitAdapter");
+        }
+        try {
+            var files = scanChanges(handle.git.getRepository(), previous.id(), current.id());
+            return new CommitDelta(previous, current, files);
+        } catch (DiffException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new DiffException(DiffException.Code.IO_ERROR,
+                    "No se pudo calcular el diff entre " + previous.shortId()
+                            + " y " + current.shortId(), e);
+        }
+    }
+
+    private static List<CommitDelta.FileChange> scanChanges(Repository repository,
+            String previousId, String currentId) throws Exception {
+        try (var walk = new RevWalk(repository);
+             var formatter = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
+            formatter.setRepository(repository);
+            formatter.setDetectRenames(true);
+
+            var changes = new ArrayList<CommitDelta.FileChange>();
+            for (var entry : formatter.scan(treeOf(walk, repository, previousId),
+                    treeOf(walk, repository, currentId))) {
+                changes.addAll(toFileChanges(entry));
+            }
+            return changes;
+        }
+    }
+
+    private static RevTree treeOf(RevWalk walk, Repository repository, String id) throws IOException {
+        var objectId = repository.resolve(id);
+        if (objectId == null) {
+            throw new DiffException(DiffException.Code.IO_ERROR,
+                    "El commit no existe en el repositorio: " + id);
+        }
+        return walk.parseCommit(objectId).getTree();
+    }
+
+    // Un rename se registra como la baja del origen y el alta del destino
+    private static List<CommitDelta.FileChange> toFileChanges(DiffEntry entry) {
+        return switch (entry.getChangeType()) {
+            case ADD -> List.of(new CommitDelta.FileChange(entry.getNewPath(),
+                    CommitDelta.ChangeType.ADDED));
+            case MODIFY -> List.of(new CommitDelta.FileChange(entry.getNewPath(),
+                    CommitDelta.ChangeType.MODIFIED));
+            case DELETE -> List.of(new CommitDelta.FileChange(entry.getOldPath(),
+                    CommitDelta.ChangeType.DELETED));
+            case RENAME -> List.of(
+                    new CommitDelta.FileChange(entry.getOldPath(), CommitDelta.ChangeType.DELETED),
+                    new CommitDelta.FileChange(entry.getNewPath(), CommitDelta.ChangeType.ADDED));
+            case COPY -> throw new DiffException(DiffException.Code.UNSUPPORTED,
+                    "Tipo de cambio no soportado por el MVP: COPY (" + entry.getNewPath() + ")");
+        };
     }
 
     private static final class JGitHandle implements RepositoryHandle {
