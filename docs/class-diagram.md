@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — estado tras U2T6 (contrato UC2 → UC3).
+> **Última actualización:** 2026-11-23 — estado tras U2T7 (E2E UC1 → UC2).
 
 ---
 

@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC2: Ejecutar Detección de Diferencias (Δ)
 
-**Estado:** U2T1–U2T6 completadas (6/8)
+**Estado:** U2T1–U2T7 completadas (7/8)
 **Stack:** Java 25+, Maven, JGit, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesora:** UC1 completa (`docs/UC1-tasks.md`) · numeración `U2Tn` para no colisionar con las `Tn` de UC1
@@ -42,7 +42,7 @@ Iterar los commits $C_1..C_n$ del `AnalysisScope` resuelto por UC1 y, para cada 
 | **U2T4** | ✅ Filtro de ficheros fuente | `application/pipeline` | De todos los archivos del Δ, qué ficheros puede parsear UC3 (extensión del lenguaje MVP) | `SourceFileFilter` (record inyectable; `javaFiles()` para el MVP, case-insensitive) + 7 tests ✅ |
 | **U2T5** | ✅ Caso de uso DiffExtractor | `application/pipeline` | Bucle UC2: `open → diff(Cᵢ₋₁, Cᵢ) por cada par → close` → `DeltaSequence` + vista filtrada para UC3 | `DiffExtractor.extract()` (try-with-resources, inyección de puerto y filtro) + `relevantChanges()`; 7 tests (Mockito: orden open→diffs→close, cierre ante fallo, alineación) ✅ |
 | **U2T6** | ✅ Contrato hacia UC3 | `application/pipeline` | Garantizar que UC3 consumirá (par, Δ) alineados sin código adhesivo | `DeltaSequenceContractTest` (3 tests: par↔Δ alineado para un analizador falso, `relevantChanges()` solo `.java`, scope de 1 commit) + garantías en javadoc ✅ |
-| **U2T7** | E2E UC1 → UC2 | `src/test` | Encadenar `ScopeResolver` + `DiffExtractor` con JGit real sobre repos temporales | `DiffExtractorE2ETest` con varios commits A/M/D (usa `GitFixtures`) |
+| **U2T7** | ✅ E2E UC1 → UC2 | `src/test` | Encadenar `ScopeResolver` + `DiffExtractor` con JGit real sobre repos temporales | `DiffExtractorE2ETest` (3 tests, sin mocks): historia A/B/README con A→M→D, `relevantChanges()` solo `.java`, repo inexistente falla en UC1 antes de difuminar ✅ |
 | **U2T8** | QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo + `class-diagram.md` + `architecture.md` §5 con la etapa real |
 
 ---
