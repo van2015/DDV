@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static ddv.assertions.DdvAssertions.assertScopeThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
@@ -49,10 +50,8 @@ class ScopeResolverTest {
         when(gitSourcePort.resolveRange(handle, scope))
                 .thenThrow(new ScopeException(ScopeException.Code.EMPTY_RANGE, "empty range"));
 
-        assertThatThrownBy(() -> resolver.resolve(scope))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.EMPTY_RANGE);
+        assertScopeThrows(() -> resolver.resolve(scope),
+                ScopeException.Code.EMPTY_RANGE);
 
         verify(handle).close();
     }

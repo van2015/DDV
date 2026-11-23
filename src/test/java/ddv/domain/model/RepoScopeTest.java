@@ -4,6 +4,7 @@ import ddv.domain.exception.ScopeException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static ddv.assertions.DdvAssertions.assertScopeThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -32,10 +33,8 @@ class RepoScopeTest {
     @Test
     @DisplayName("lastN() with N <= 0 throws INVALID_ARGUMENT")
     void nonPositiveLastNThrowsInvalidArgument() {
-        assertThatThrownBy(() -> RepoScope.lastN("/repo/x", 0))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.INVALID_ARGUMENT);
+        assertScopeThrows(() -> RepoScope.lastN("/repo/x", 0),
+                ScopeException.Code.INVALID_ARGUMENT);
     }
 
     @Test

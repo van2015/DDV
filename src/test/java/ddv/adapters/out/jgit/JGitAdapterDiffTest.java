@@ -11,8 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.Instant;
 
+import static ddv.assertions.DdvAssertions.assertDiffThrows;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JGitAdapterDiffTest {
 
@@ -115,10 +115,8 @@ class JGitAdapterDiffTest {
         var commit = Commit.of("1111111111111111111111111111111111111111");
         ddv.ports.RepositoryHandle foreign = () -> { };
 
-        assertThatThrownBy(() -> adapter.diff(foreign, commit, commit))
-                .isInstanceOf(DiffException.class)
-                .extracting(e -> ((DiffException) e).code())
-                .isEqualTo(DiffException.Code.INVALID_ARGUMENT);
+        assertDiffThrows(() -> adapter.diff(foreign, commit, commit),
+                DiffException.Code.INVALID_ARGUMENT);
     }
 
     @Test
@@ -129,10 +127,8 @@ class JGitAdapterDiffTest {
         var unknown = "0000000000000000000000000000000000000001";
 
         try (var handle = adapter.open(RepoScope.lastN(repo.toString(), 5))) {
-            assertThatThrownBy(() -> adapter.diff(handle, Commit.of(unknown), Commit.of(c1)))
-                    .isInstanceOf(DiffException.class)
-                    .extracting(e -> ((DiffException) e).code())
-                    .isEqualTo(DiffException.Code.IO_ERROR);
+            assertDiffThrows(() -> adapter.diff(handle, Commit.of(unknown), Commit.of(c1)),
+                    DiffException.Code.IO_ERROR);
         }
     }
 

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static ddv.assertions.DdvAssertions.assertDiffThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -33,20 +34,16 @@ class DeltaSequenceTest {
     @Test
     @DisplayName("Delta count different from the number of pairs throws INVALID_ARGUMENT")
     void deltaCountMustMatchConsecutivePairs() {
-        assertThatThrownBy(() -> new DeltaSequence(SOURCE, List.of(delta("c1", "c2"))))
-                .isInstanceOf(DiffException.class)
-                .extracting(e -> ((DiffException) e).code())
-                .isEqualTo(DiffException.Code.INVALID_ARGUMENT);
+        assertDiffThrows(() -> new DeltaSequence(SOURCE, List.of(delta("c1", "c2"))),
+                DiffException.Code.INVALID_ARGUMENT);
     }
 
     @Test
     @DisplayName("Delta out of pair order throws INVALID_ARGUMENT")
     void outOfOrderDeltasAreRejected() {
-        assertThatThrownBy(() -> new DeltaSequence(SOURCE,
-                List.of(delta("c2", "c3"), delta("c1", "c2"))))
-                .isInstanceOf(DiffException.class)
-                .extracting(e -> ((DiffException) e).code())
-                .isEqualTo(DiffException.Code.INVALID_ARGUMENT);
+        assertDiffThrows(() -> new DeltaSequence(SOURCE,
+                List.of(delta("c2", "c3"), delta("c1", "c2"))),
+                DiffException.Code.INVALID_ARGUMENT);
     }
 
     @Test

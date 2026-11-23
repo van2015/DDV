@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Set;
 
+import static ddv.assertions.DdvAssertions.assertDiffThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -42,6 +43,25 @@ class SourceFileFilterTest {
     }
 
     @Test
+    @DisplayName("Configured extensions are normalized, so an uppercase spec also matches")
+    void configuredExtensionsAreNormalizedToLowercase() {
+        var upper = new SourceFileFilter(Set.of(".JAVA"));
+        var mixed = new SourceFileFilter(Set.of(".Java"));
+
+        assertThat(upper.isRelevant(change("src/A.java"))).isTrue();
+        assertThat(upper.isRelevant(change("src/A.JAVA"))).isTrue();
+        assertThat(mixed.isRelevant(change("src/a.java"))).isTrue();
+    }
+
+    @Test
+    @DisplayName("Extensions differing only in case collapse into a single one")
+    void extensionsDifferingOnlyInCaseAreDeduplicated() {
+        var deduplicated = new SourceFileFilter(Set.of(".JAVA", ".java"));
+
+        assertThat(deduplicated.extensions()).containsExactly(".java");
+    }
+
+    @Test
     @DisplayName("Files without a source extension are rejected")
     void filesWithoutSourceExtensionAreRejected() {
         assertThat(filter.isRelevant(change("Makefile"))).isFalse();
@@ -61,10 +81,22 @@ class SourceFileFilterTest {
     @Test
     @DisplayName("An empty extension set throws INVALID_ARGUMENT")
     void emptyExtensionSetThrowsInvalidArgument() {
-        assertThatThrownBy(() -> new SourceFileFilter(Set.of()))
-                .isInstanceOf(DiffException.class)
-                .extracting(e -> ((DiffException) e).code())
-                .isEqualTo(DiffException.Code.INVALID_ARGUMENT);
+        assertDiffThrows(() -> new SourceFileFilter(Set.of()),
+                DiffException.Code.INVALID_ARGUMENT);
+    }
+
+    @Test
+    @DisplayName("An extension without a leading dot throws INVALID_ARGUMENT")
+    void extensionWithoutLeadingDotThrowsInvalidArgument() {
+        assertDiffThrows(() -> new SourceFileFilter(Set.of("java")),
+                DiffException.Code.INVALID_ARGUMENT);
+    }
+
+    @Test
+    @DisplayName("A blank extension throws INVALID_ARGUMENT")
+    void blankExtensionThrowsInvalidArgument() {
+        assertDiffThrows(() -> new SourceFileFilter(Set.of("   ")),
+                DiffException.Code.INVALID_ARGUMENT);
     }
 
     @Test

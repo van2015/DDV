@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static ddv.assertions.DdvAssertions.assertScopeThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -21,10 +22,8 @@ class AnalysisScopeTest {
     @Test
     @DisplayName("Without commits throws EMPTY_RANGE")
     void emptyCommitsThrowsEmptyRange() {
-        assertThatThrownBy(() -> new AnalysisScope(SOURCE, List.of()))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.EMPTY_RANGE);
+        assertScopeThrows(() -> new AnalysisScope(SOURCE, List.of()),
+                ScopeException.Code.EMPTY_RANGE);
     }
 
     @Test

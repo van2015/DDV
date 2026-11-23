@@ -15,6 +15,7 @@ import org.eclipse.jgit.errors.IncorrectObjectTypeException;
 import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
@@ -118,18 +119,27 @@ public class JGitAdapter implements GitSourcePort {
 
     private static List<Commit> resolveBetween(Git git, RepoScope.Range.Between range) throws Exception {
         var repository = git.getRepository();
-        var fromId = repository.resolve(range.from());
-        var toId = repository.resolve(range.to());
-        if (fromId == null) {
-            throw new ScopeException(ScopeException.Code.COMMIT_NOT_FOUND,
-                    "El commit no existe: " + range.from());
-        }
-        if (toId == null) {
-            throw new ScopeException(ScopeException.Code.COMMIT_NOT_FOUND,
-                    "El commit no existe: " + range.to());
-        }
+        var fromId = requireResolvable(repository, range.from());
+        var toId = requireResolvable(repository, range.to());
 
-        Commit fromDomain;
+        var commits = new ArrayList<Commit>();
+        commits.add(requireAncestralStart(repository, range, fromId, toId));
+        commits.addAll(collectExclusiveCommits(git, toId, fromId));
+        return commits;
+    }
+
+    private static ObjectId requireResolvable(Repository repository, String revision)
+            throws IOException {
+        var id = repository.resolve(revision);
+        if (id == null) {
+            throw new ScopeException(ScopeException.Code.COMMIT_NOT_FOUND,
+                    "El commit no existe: " + revision);
+        }
+        return id;
+    }
+
+    private static Commit requireAncestralStart(Repository repository, RepoScope.Range.Between range,
+            ObjectId fromId, ObjectId toId) throws IOException {
         var walk = new RevWalk(repository);
         try {
             var from = parseCommit(walk, fromId, range.from());
@@ -138,20 +148,18 @@ public class JGitAdapter implements GitSourcePort {
                 throw new ScopeException(ScopeException.Code.NOT_ANCESTOR,
                         range.from() + " no es ancestro de " + range.to());
             }
-            fromDomain = toDomain(from);
+            return toDomain(from);
         } finally {
             walk.dispose();
         }
+    }
 
-        var exclusive = new ArrayList<Commit>();
-        for (var rev : git.log().add(toId).not(fromId).call()) {
-            exclusive.add(toDomain(rev));
-        }
-        Collections.reverse(exclusive);
-
+    private static List<Commit> collectExclusiveCommits(Git git, ObjectId toId, ObjectId fromId) throws Exception {
         var commits = new ArrayList<Commit>();
-        commits.add(fromDomain);
-        commits.addAll(exclusive);
+        for (var rev : git.log().add(toId).not(fromId).call()) {
+            commits.add(toDomain(rev));
+        }
+        Collections.reverse(commits);
         return commits;
     }
 

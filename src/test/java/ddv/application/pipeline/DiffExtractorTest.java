@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static ddv.assertions.DdvAssertions.assertDiffThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
@@ -64,10 +65,8 @@ class DiffExtractorTest {
         when(gitSourcePort.diff(handle, c1, c2))
                 .thenThrow(new DiffException(DiffException.Code.IO_ERROR, "read failed"));
 
-        assertThatThrownBy(() -> extractor.extract(scope))
-                .isInstanceOf(DiffException.class)
-                .extracting(e -> ((DiffException) e).code())
-                .isEqualTo(DiffException.Code.IO_ERROR);
+        assertDiffThrows(() -> extractor.extract(scope),
+                DiffException.Code.IO_ERROR);
 
         verify(handle).close();
         verify(gitSourcePort, never()).diff(handle, c2, c3);
@@ -106,10 +105,8 @@ class DiffExtractorTest {
         when(gitSourcePort.diff(handle, c1, c2)).thenReturn(delta("other1", "other2", "A.java"));
         when(gitSourcePort.diff(handle, c2, c3)).thenReturn(delta("c2", "c3", "B.java"));
 
-        assertThatThrownBy(() -> extractor.extract(scope))
-                .isInstanceOf(DiffException.class)
-                .extracting(e -> ((DiffException) e).code())
-                .isEqualTo(DiffException.Code.INVALID_ARGUMENT);
+        assertDiffThrows(() -> extractor.extract(scope),
+                DiffException.Code.INVALID_ARGUMENT);
 
         verify(handle).close();
     }

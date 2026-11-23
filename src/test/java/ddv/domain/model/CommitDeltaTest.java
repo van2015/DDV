@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static ddv.assertions.DdvAssertions.assertDiffThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -18,10 +19,8 @@ class CommitDeltaTest {
     @Test
     @DisplayName("FileChange with blank path throws INVALID_ARGUMENT")
     void blankPathThrowsInvalidArgument() {
-        assertThatThrownBy(() -> new CommitDelta.FileChange("  ", CommitDelta.ChangeType.ADDED))
-                .isInstanceOf(DiffException.class)
-                .extracting(e -> ((DiffException) e).code())
-                .isEqualTo(DiffException.Code.INVALID_ARGUMENT);
+        assertDiffThrows(() -> new CommitDelta.FileChange("  ", CommitDelta.ChangeType.ADDED),
+                DiffException.Code.INVALID_ARGUMENT);
     }
 
     @Test

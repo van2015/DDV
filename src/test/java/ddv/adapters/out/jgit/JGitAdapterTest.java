@@ -11,8 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static ddv.assertions.DdvAssertions.assertScopeThrows;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JGitAdapterTest {
 
@@ -36,10 +36,8 @@ class JGitAdapterTest {
     @Test
     @DisplayName("Missing local path throws REPO_NOT_FOUND")
     void missingLocalPathThrowsRepoNotFound() {
-        assertThatThrownBy(() -> adapter.open(RepoScope.lastN("/definitely/missing/path", 1)))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.REPO_NOT_FOUND);
+        assertScopeThrows(() -> adapter.open(RepoScope.lastN("/definitely/missing/path", 1)),
+                ScopeException.Code.REPO_NOT_FOUND);
     }
 
     @Test
@@ -47,10 +45,8 @@ class JGitAdapterTest {
     void nonGitDirectoryThrowsRepoNotFound() throws IOException {
         var notARepo = Files.createDirectory(tempDir.resolve("not-a-repo"));
 
-        assertThatThrownBy(() -> adapter.open(RepoScope.lastN(notARepo.toString(), 1)))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.REPO_NOT_FOUND);
+        assertScopeThrows(() -> adapter.open(RepoScope.lastN(notARepo.toString(), 1)),
+                ScopeException.Code.REPO_NOT_FOUND);
     }
 
     @Test
@@ -58,10 +54,8 @@ class JGitAdapterTest {
     void localFilePathThrowsRepoNotFound() throws IOException {
         var file = Files.createFile(tempDir.resolve("not-a-repo.txt"));
 
-        assertThatThrownBy(() -> adapter.open(RepoScope.lastN(file.toString(), 1)))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.REPO_NOT_FOUND);
+        assertScopeThrows(() -> adapter.open(RepoScope.lastN(file.toString(), 1)),
+                ScopeException.Code.REPO_NOT_FOUND);
     }
 
     @Test
@@ -83,11 +77,9 @@ class JGitAdapterTest {
     void unreachableRemoteThrowsNoAccess() throws IOException {
         var clonesBefore = tempCloneDirs();
 
-        assertThatThrownBy(() -> adapter.open(
-                RepoScope.lastN("file:///tmp/ddv-repo-that-does-not-exist.git", 1)))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.NO_ACCESS);
+        assertScopeThrows(() -> adapter.open(
+                RepoScope.lastN("file:///tmp/ddv-repo-that-does-not-exist.git", 1)),
+                ScopeException.Code.NO_ACCESS);
 
         assertThat(tempCloneDirs()).isEqualTo(clonesBefore);
     }

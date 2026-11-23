@@ -9,8 +9,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.time.Instant;
 import java.nio.file.Path;
 
+import static ddv.assertions.DdvAssertions.assertScopeThrows;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JGitAdapterRangeTest {
 
@@ -95,10 +95,8 @@ class JGitAdapterRangeTest {
         var scope = RepoScope.between(repo.toString(), c3, c1);
 
         try (var handle = adapter.open(scope)) {
-            assertThatThrownBy(() -> adapter.resolveRange(handle, scope))
-                    .isInstanceOf(ScopeException.class)
-                    .extracting(e -> ((ScopeException) e).code())
-                    .isEqualTo(ScopeException.Code.NOT_ANCESTOR);
+            assertScopeThrows(() -> adapter.resolveRange(handle, scope),
+                    ScopeException.Code.NOT_ANCESTOR);
         }
     }
 
@@ -112,10 +110,8 @@ class JGitAdapterRangeTest {
                 "0000000000000000000000000000000000000002");
 
         try (var handle = adapter.open(scope)) {
-            assertThatThrownBy(() -> adapter.resolveRange(handle, scope))
-                    .isInstanceOf(ScopeException.class)
-                    .extracting(e -> ((ScopeException) e).code())
-                    .isEqualTo(ScopeException.Code.COMMIT_NOT_FOUND);
+            assertScopeThrows(() -> adapter.resolveRange(handle, scope),
+                    ScopeException.Code.COMMIT_NOT_FOUND);
         }
     }
 
@@ -127,10 +123,8 @@ class JGitAdapterRangeTest {
         var scope = RepoScope.lastN(repo.toString(), 5);
         ddv.ports.RepositoryHandle foreign = () -> { };
 
-        assertThatThrownBy(() -> adapter.resolveRange(foreign, scope))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.INVALID_ARGUMENT);
+        assertScopeThrows(() -> adapter.resolveRange(foreign, scope),
+                ScopeException.Code.INVALID_ARGUMENT);
     }
 
     @Test
@@ -140,10 +134,8 @@ class JGitAdapterRangeTest {
         var scope = RepoScope.lastN(repo.toString(), 5);
 
         try (var handle = adapter.open(scope)) {
-            assertThatThrownBy(() -> adapter.resolveRange(handle, scope))
-                    .isInstanceOf(ScopeException.class)
-                    .extracting(e -> ((ScopeException) e).code())
-                    .isEqualTo(ScopeException.Code.EMPTY_RANGE);
+            assertScopeThrows(() -> adapter.resolveRange(handle, scope),
+                    ScopeException.Code.EMPTY_RANGE);
         }
     }
 }

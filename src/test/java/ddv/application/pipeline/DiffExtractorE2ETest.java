@@ -13,8 +13,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.Instant;
 
+import static ddv.assertions.DdvAssertions.assertScopeThrows;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 /**
@@ -81,10 +81,8 @@ class DiffExtractorE2ETest {
     void missingRepositoryFailsInUc1() {
         var scope = RepoScope.lastN("/definitely/missing/repo", 5);
 
-        assertThatThrownBy(() -> extractor.extract(scopeResolver.resolve(scope)))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.REPO_NOT_FOUND);
+        assertScopeThrows(() -> extractor.extract(scopeResolver.resolve(scope)),
+                ScopeException.Code.REPO_NOT_FOUND);
     }
 
     /** c1 (log) → c2 (+A) → c3 (+B) → c4 (mod A) → c5 (−B, +README). */

@@ -15,6 +15,9 @@ import java.util.Objects;
  */
 public record Commit(String id, String shortId, String message, Instant authoredAt) {
 
+    /** Longitud del shortId derivado cuando no se provee uno explícito. */
+    private static final int SHORT_ID_LENGTH = 8;
+
     public Commit {
         if (id == null || id.isBlank()) {
             throw new ScopeException(ScopeException.Code.INVALID_ARGUMENT,
@@ -22,7 +25,7 @@ public record Commit(String id, String shortId, String message, Instant authored
         }
         id = id.trim();
         if (shortId == null || shortId.isBlank()) {
-            shortId = id.substring(0, Math.min(8, id.length()));
+            shortId = id.substring(0, Math.min(SHORT_ID_LENGTH, id.length()));
         }
         Objects.requireNonNull(message, "El mensaje del commit no puede ser nulo");
     }
