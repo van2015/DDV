@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — estado tras U2T5 (`DiffExtractor`).
+> **Última actualización:** 2026-11-23 — estado tras U2T6 (contrato UC2 → UC3).
 
 ---
 
@@ -280,7 +280,7 @@ classDiagram
 - **`AnalyzeCommand` (T8)** es el adaptador de entrada: `Callable<Integer>` de picocli con `@Spec` para escribir por los *writers* de la `CommandLine` (testeable sin capturar `System.out`). Salidas: **exit 0** (ok), **exit 1** (`ScopeException` → `Error [CÓDIGO]: mensaje` por stderr), **exit 2** (errores de uso de picocli: faltan/exclusivas opciones o `--range` sin `..`).
 - **`DdvCommand` (T8)** es la raíz de composición: único punto que junta `JGitAdapter` + `ScopeResolver`; con la raíz sin subcomando imprime la ayuda. El overload `execute(args, out, err)` (T10) es la costura testeable para el E2E: propaga los *writers* a los subcomandos porque picocli no lo hace (cada subcomando tiene su propia `CommandLine`).
 - **`AnalysisScope` es contrato estable (T9):** UC2–UC4 se apoyan en orden ascendente, inmutabilidad y `consecutivePairs()` en el mismo orden. Bloqueado por `AnalysisScopeTest` (instancias idénticas, pares inmutables, trazabilidad `source`, igualdad por valor) y `GitSourcePortContractTest` (reproduce la cabecera del bucle `open → diff(par) → close` contra un puerto falso).
-- **`DeltaSequence` es contrato de salida de UC2 (U2T1):** una Δ por par, alineada 1:1 y en el mismo orden que `consecutivePairs()` (el invariante se valida en el constructor → `DiffException`), inmutable y trazable al `AnalysisScope` de origen; UC3 la recorre sin código adhesivo.
+- **`DeltaSequence` es contrato de salida de UC2 (U2T1):** una Δ por par, alineada 1:1 y en el mismo orden que `consecutivePairs()` (el invariante se valida en el constructor → `DiffException`), inmutable y trazable al `AnalysisScope` de origen; UC3 la recorre sin código adhesivo. Bloqueado por `DeltaSequenceTest` y `DeltaSequenceContractTest` (U2T6: alimenta a un analizador falso con (par, Δ) y verifica `relevantChanges()`).
 - **`DiffException` (U2T2)** separa los fallos de detección de Δ de `ScopeException` (alcance, UC1): `FileChange` migró a ella. Cada excepción nombra la preocupación que representa.
 - **`SourceFileFilter` (U2T4)** decide qué archivos del Δ parsea UC3, pero solo por **extensión** (`.java` para el MVP; configurable, p. ej. `.py`): la relevancia estructural real la determina UC3 sobre el AST. Es inyectable para que el lenguaje no esté cableado en el pipeline.
 - **`DiffExtractor` (U2T5)** es el caso de uso UC2: `open → diff(par) → close` sobre `consecutivePairs()`, ensamblando `DeltaSequence` (el invariante de alineación del record detecta un puerto que devuelva Δs fuera de orden). `relevantChanges()` entrega a UC3 la lista plana de archivos analizables, en orden de aparición.

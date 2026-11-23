@@ -14,7 +14,8 @@ import java.util.Objects;
  *
  * <p><b>Contrato estable:</b> inmutabilidad, alineación 1:1 con
  * {@link AnalysisScope#consecutivePairs()} y trazabilidad de {@code source}.
- * Bloqueado por {@code DeltaSequenceTest}.</p>
+ * Bloqueado por {@code DeltaSequenceTest} y {@code DeltaSequenceContractTest}
+ * (consumo (par, Δ) por el analizador de UC3).</p>
  *
  * @param source alcance del que derivan las Δ (trazabilidad)
  * @param deltas una Δ por par consecutivo, en orden $C_1..C_n$ (vacío si el
