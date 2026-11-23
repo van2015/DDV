@@ -4,7 +4,7 @@
 **Origen:** revisión de código de 2026-11-23 + discusión de diseño posterior
 **Regla de este documento:** no se anticipan. Cada entrada de **A** y **B** declara su **gatillo** — la evidencia que justificaría hacerla — y su **superficie**. Hasta que el gatillo salga, tocar ese código por otro motivo **no** activa la refactorización. La sección **C** no es deuda: es análisis de referencia (dónde podría aparecer un subtipo nuevo) para aplicarlo al diseñar UC3/UC4/UC5.
 
-> Pendiente menor relacionado: dos `UnsupportedOperationException` en tests siguen con mensaje en español (`DeltaSequenceContractTest`, `GitSourcePortContractTest`), lo que incumple la regla 5 del `AGENTS.md`. Es corrección, no refactorización: arreglarse al tocar esos tests.
+> ~~Pendiente menor relacionado: dos `UnsupportedOperationException` en tests con mensaje en español~~ — resuelto en U3T2 (ver sección D).
 
 ---
 
@@ -149,3 +149,4 @@ No es deuda: es el mapa de **dónde podría aparecer un subtipo nuevo** y, por t
 | 20 aserciones de código duplicadas en 11 clases de test | ✅ `64642f2` — `ddv.assertions.DdvAssertions` |
 | Magic `8` en `Commit` | ✅ `64642f2` — `SHORT_ID_LENGTH` |
 | Bloques duplicados en `JGitAdapter` (guard, catch-rethrow, bucle log+reverse) | ✅ `jgitHandleOf` + `UNSUPPORTED_HANDLE`, `noAccess`/`ioError`, `toChronological(LogCommand)` |
+| Dos `UnsupportedOperationException` con mensaje en español en los tests de contrato | ✅ U3T2 — mensajes en inglés al ampliar los puertos falsos con `content()` (regla 5) |

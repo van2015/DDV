@@ -110,6 +110,7 @@ public interface GitSourcePort {
     RepositoryHandle open(RepoScope scope);                        // AutoCloseable opaco
     AnalysisScope resolveRange(RepositoryHandle repo, RepoScope scope); // C₁..Cₙ
     CommitDelta diff(RepositoryHandle repo, Commit previous, Commit current); // Δ por commit
+    Optional<String> content(RepositoryHandle repo, Commit commit, String path); // blob en ese commit
 }
 ```
 

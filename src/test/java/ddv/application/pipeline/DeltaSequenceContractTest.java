@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -98,7 +99,7 @@ class DeltaSequenceContractTest {
 
         @Override
         public AnalysisScope resolveRange(RepositoryHandle repository, RepoScope scope) {
-            throw new UnsupportedOperationException("fuera del alcance de este contrato");
+            throw new UnsupportedOperationException("not part of this contract");
         }
 
         @Override
@@ -107,6 +108,11 @@ class DeltaSequenceContractTest {
                     new CommitDelta.FileChange("src/" + current.shortId() + ".java",
                             CommitDelta.ChangeType.MODIFIED),
                     new CommitDelta.FileChange("README.md", CommitDelta.ChangeType.MODIFIED)));
+        }
+
+        @Override
+        public Optional<String> content(RepositoryHandle repository, Commit commit, String path) {
+            throw new UnsupportedOperationException("not part of this contract");
         }
     }
 }

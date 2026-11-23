@@ -22,9 +22,11 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.io.DisabledOutputStream;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -195,16 +197,43 @@ public class JGitAdapter implements GitSourcePort {
             var files = scanChanges(handle.git.getRepository(), previous.id(), current.id());
             return new CommitDelta(previous, current, files);
         } catch (Exception e) {
-            throw ioError(e, previous, current);
+            throw ioError(e, "No se pudo calcular el diff entre " + previous.shortId()
+                    + " y " + current.shortId());
         }
     }
 
-    /** Conserva los fallos de diff ya tipados; traduce el resto a {@code IO_ERROR}. */
-    private static DiffException ioError(Exception cause, Commit previous, Commit current) {
+    @Override
+    public Optional<String> content(RepositoryHandle repository, Commit commit, String path) {
+        var handle = jgitHandleOf(repository).orElseThrow(
+                () -> new DiffException(DiffException.Code.INVALID_ARGUMENT, UNSUPPORTED_HANDLE));
+        var gitRepository = handle.git.getRepository();
+        try (var walk = new RevWalk(gitRepository)) {
+            return blobAt(gitRepository, walk, commit.id(), path);
+        } catch (Exception e) {
+            throw ioError(e, "No se pudo leer " + path + " en el commit " + commit.shortId());
+        }
+    }
+
+    /** Conserva los fallos de diff/lectura ya tipados; traduce el resto a {@code IO_ERROR}. */
+    private static DiffException ioError(Exception cause, String detail) {
         return cause instanceof DiffException diff ? diff
-                : new DiffException(DiffException.Code.IO_ERROR,
-                        "No se pudo calcular el diff entre " + previous.shortId()
-                                + " y " + current.shortId(), cause);
+                : new DiffException(DiffException.Code.IO_ERROR, detail, cause);
+    }
+
+    private static Optional<String> blobAt(Repository repository, RevWalk walk,
+            String commitId, String path) throws IOException {
+        var entry = TreeWalk.forPath(repository, path, treeOf(walk, repository, commitId));
+        if (entry == null) {
+            return Optional.empty();
+        }
+        try (entry) {
+            // un directorio (u otro objeto no-blob) no tiene contenido de archivo
+            if (entry.getFileMode(0).getObjectType() != Constants.OBJ_BLOB) {
+                return Optional.empty();
+            }
+            var blob = repository.open(entry.getObjectId(0));
+            return Optional.of(new String(blob.getBytes(), StandardCharsets.UTF_8));
+        }
     }
 
     private static List<CommitDelta.FileChange> scanChanges(Repository repository,
