@@ -5,7 +5,7 @@ Herramienta de análisis de evolución estructural del código: detecta cambios 
 ## Estructura
 
 - `AGENTS.md` — casos de uso (MVP) y reglas del proyecto
-- `docs/` — diagramas de casos de uso (`UC-diagram.md`), arquitectura (`architecture.md`), tareas (`UC1-tasks.md`, `UC2-tasks.md`)
+- `docs/` — diagramas de casos de uso (`UC-diagram.md`), arquitectura (`architecture.md`), tareas (`UC1-tasks.md`, `UC2-tasks.md`), deuda de diseño diferida (`refactors.md`)
 - `pom.xml` — proyecto Maven (Java 25+)
 - `src/main/java/ddv/` — código siguiendo la arquitectura **Hexagonal + Pipeline**
   - `domain/` — modelos puros (sin frameworks)

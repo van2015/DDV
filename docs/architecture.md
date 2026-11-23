@@ -146,6 +146,8 @@ flowchart LR
 | El bucle por commit queda encapsulado e invisible para la CLI | |
 | `ParserPort`/`RendererPort` son el germen de un futuro Microkernel/Plugins | |
 
+> **Deuda de diseño diferida:** refactorizaciones con gatillo explícito —p. ej. extraer `CommitRange` de `AnalysisScope` cuando UC3 o UC5 lo pidan— en [`docs/refactors.md`](refactors.md).
+
 ---
 
 ## 7. Relación con los casos de uso
