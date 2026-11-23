@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC2: Ejecutar Detección de Diferencias (Δ)
 
-**Estado:** U2T1–U2T3 completadas (3/8)
+**Estado:** U2T1–U2T4 completadas (4/8)
 **Stack:** Java 25+, Maven, JGit, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesora:** UC1 completa (`docs/UC1-tasks.md`) · numeración `U2Tn` para no colisionar con las `Tn` de UC1
@@ -39,7 +39,7 @@ Iterar los commits $C_1..C_n$ del `AnalysisScope` resuelto por UC1 y, para cada 
 | **U2T1** | ✅ Contrato de salida Δ | `domain/model` | Secuencia de `CommitDelta` alineada 1:1 con `consecutivePairs()`, inmutable y trazable al `AnalysisScope` de origen | `DeltaSequence` (record; invariante de nº de Δ y de orden validados en el constructor → `DiffException`) + `DeltaSequenceTest` (6 tests) ✅ |
 | **U2T2** | ✅ Excepción tipada de Δ | `domain/exception` | Errores de extracción sin mezclarlos con el `ScopeException` del alcance | `DiffException` (`INVALID_ARGUMENT`/`IO_ERROR`/`UNSUPPORTED`); `FileChange` migra; matriz en `docs/class-diagram.md` ✅ |
 | **U2T3** | ✅ Adaptador JGit: diff | `adapters/out/jgit` | `GitSourcePort.diff()` real: comparar árboles de `previous` y `current` → `FileChange` A/M/D, con detección de renames activada emitiendo `origen→DELETED` + `destino→ADDED`; traducir errores de JGit | `JGitAdapter.diff()` con `DiffFormatter.scan()` (JGit no expone renames en `DiffCommand`) + 8 tests: A, M, D, rename, binario, mismo commit, handle ajeno, commit inexistente ✅ |
-| **U2T4** | Filtro de ficheros fuente | `application/pipeline` | De todos los archivos del Δ, qué ficheros puede parsear UC3 (extensión del lenguaje MVP) | `SourceFileFilter` inyectable + tests |
+| **U2T4** | ✅ Filtro de ficheros fuente | `application/pipeline` | De todos los archivos del Δ, qué ficheros puede parsear UC3 (extensión del lenguaje MVP) | `SourceFileFilter` (record inyectable; `javaFiles()` para el MVP, case-insensitive) + 7 tests ✅ |
 | **U2T5** | Caso de uso DiffExtractor | `application/pipeline` | Bucle UC2: `open → diff(Cᵢ₋₁, Cᵢ) por cada par → close` → `DeltaSequence` + vista filtrada para UC3 | `DiffExtractor` + tests con `GitSourcePort` mockeado (espejo de `ScopeResolverTest`) |
 | **U2T6** | Contrato hacia UC3 | `application/pipeline` | Garantizar que UC3 consumirá (par, Δ) alineados sin código adhesivo | contract test estilo T9 (`GitSourcePortContractTest`) + garantías en javadoc |
 | **U2T7** | E2E UC1 → UC2 | `src/test` | Encadenar `ScopeResolver` + `DiffExtractor` con JGit real sobre repos temporales | `DiffExtractorE2ETest` con varios commits A/M/D (usa `GitFixtures`) |
