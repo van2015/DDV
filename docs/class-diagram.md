@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados). **UC3 U3T1–U3T3:** `CodeStructure`, `StructuralChange` (Sᵢ), `ParseException` y `GitSourcePort.content()` (U3T2).
+> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados). **UC3 U3T1–U3T4:** `CodeStructure`, `StructuralChange` (Sᵢ), `ParseException`, `GitSourcePort.content()` (U3T2) y `ParserPort` + `AstParserAdapter` (U3T4).
 
 ---
 
@@ -211,6 +211,22 @@ classDiagram
         +close() void
     }
 
+    class ParserPort {
+        <<interface>>
+        +parse(String path, String source) CodeStructure
+    }
+
+    class AstParserAdapter {
+        <<adapter: out/ast>>
+        -JavaParser parser
+        +parse(String path, String source) CodeStructure
+        -compilationUnitOf(String path, String source) CompilationUnit
+        -structureOf(TypeDeclaration~?~ type, String name) ClassStructure
+        -membersOf(TypeDeclaration~?~ type) List~MemberStructure~
+        -usagesOf(TypeDeclaration~?~ type) List~String~
+        -direct(TypeDeclaration~?~ type, Class~T~ kind) List~T~
+    }
+
     class JGitAdapter {
         <<adapter: out/jgit>>
         +open(RepoScope scope) RepositoryHandle
@@ -325,6 +341,8 @@ classDiagram
     GitSourcePort ..> AnalysisScope : resolveRange()
     GitSourcePort ..> Commit : diff(prev, curr)
     GitSourcePort ..> CommitDelta : diff()
+    GitSourcePort ..> Optional : content()
+    ParserPort ..> CodeStructure : parse()
 
     %% Adaptador de salida (T4)
     GitSourcePort <|.. JGitAdapter : implements
@@ -332,6 +350,11 @@ classDiagram
     JGitAdapter *-- JGitHandle : crea en open()
     JGitAdapter ..> ScopeException : traduce errores de infraestructura
     JGitAdapter ..> DiffException : traduce errores de diff
+
+    %% Adaptador de AST (U3T4)
+    ParserPort <|.. AstParserAdapter : implements
+    AstParserAdapter ..> ParseException : errores de sintaxis
+    AstParserAdapter ..> CodeStructure : produce la instantánea
 
     %% Caso de uso UC1 (T6)
     ScopeResolver ..> GitSourcePort : usa (inyección)
@@ -386,6 +409,7 @@ classDiagram
 - **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**.
 - **`diff()` (U2T3)** compara los árboles de `previous` y `current` con `DiffFormatter` (`setDetectRenames(true)`) y mapea `ADD/MODIFY/DELETE` a `ChangeType`; un **rename se emite como `DELETED`(origen) + `ADDED`(destino)** y `COPY` → `UNSUPPORTED`. `DiffCommand` de JGit no expone detección de renames, por eso se usa `DiffFormatter.scan()`.
 - **`content()` (U3T2)** lee el blob de un archivo **en un commit concreto** (`TreeWalk.forPath` + `ObjectLoader`, UTF-8) y devuelve `Optional.empty()` si no existía en ese commit o si la ruta es un directorio — JGit devuelve en ese caso el *árbol*, no `null`, así que se comprueba `getFileMode == OBJ_BLOB` (cubierto por test). Reutiliza `treeOf()` e `ioError()` con `diff()`; es lo que UC3 usa para parsear la versión vieja y la nueva de cada Δ.
+- **`AstParserAdapter` (U3T4)** implementa `ParserPort` con **JavaParser** a nivel `JAVA_25` (sin configurarlo rechaza `record`, que exige ≥14). Produce `CodeStructure` por nombre, **sin resolución de símbolos** (no hay classpath): `superTypes` de `extends`/`implements`, `typeUsages` excluyendo los de clases anidadas y los ya registrados como superTypes, y miembros directos (métodos, constructores, atributos, constantes de enum, componentes de record). El despacho sobre `TypeDeclaration` —jerarquía **abierta de un tercero**— usa `switch` de patrones con `default` que **lanza** (`SYNTAX_ERROR`), no un caso silencioso; los tipos propios van *sealed* sin `default` (reglas de `refactors.md` C).
 - **`ScopeResolver` (T6)** orquesta `open → resolveRange → close` con *try-with-resources* mediante inyección de `GitSourcePort`; no conoce JGit ni valida directamente (validan dominio y adaptador).
 - **`AnalyzeCommand` (T8)** es el adaptador de entrada: `Callable<Integer>` de picocli con `@Spec` para escribir por los *writers* de la `CommandLine` (testeable sin capturar `System.out`). Salidas: **exit 0** (ok), **exit 1** (`ScopeException` → `Error [CÓDIGO]: mensaje` por stderr), **exit 2** (errores de uso de picocli: faltan/exclusivas opciones o `--range` sin `..`).
 - **`DdvCommand` (T8)** es la raíz de composición: único punto que junta `JGitAdapter` + `ScopeResolver`; con la raíz sin subcomando imprime la ayuda. El overload `execute(args, out, err)` (T10) es la costura testeable para el E2E: propaga los *writers* a los subcomandos porque picocli no lo hace (cada subcomando tiene su propia `CommandLine`).
@@ -423,12 +447,12 @@ classDiagram
 | Código | Origen | Causa |
 | :--- | :--- | :--- |
 | `INVALID_INPUT` | `CodeStructure` / `StructuralChange` | nombre de clase, miembro o ruta en blanco (`requireNotBlank`) |
-| `SYNTAX_ERROR` | `AstParserAdapter` *(previsto U3T4)* | el código fuente tiene errores de sintaxis |
+| `SYNTAX_ERROR` | `AstParserAdapter` | el código fuente tiene errores de sintaxis (con línea/columna) o tipo de declaración no soportado |
 
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC3 (U3T2, U3T4–U3T5) | `GitSourcePort.content()`, `ParserPort`, `AstParserAdapter`, `StructuralAnalyzer` |
+| UC3 (U3T5) | `StructuralAnalyzer` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |

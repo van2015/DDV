@@ -30,6 +30,7 @@ class HexagonalArchitectureTest {
     private static final List<String> FORBIDDEN_REFERENCES = List.of(
             "org/eclipse/jgit",
             "picocli",
+            "com/github/javaparser",
             "ddv/adapters");
 
     @Test

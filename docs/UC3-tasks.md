@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC3: Analizar Estructura Cambiada por Commit
 
-**Estado:** U3T1, U3T2 y U3T3 completadas (3/8)
+**Estado:** U3T1–U3T4 completadas (4/8)
 **Stack:** Java 25+, Maven, JGit, **JavaParser**, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesoras:** UC1 (`docs/UC1-tasks.md`) y UC2 (`docs/UC2-tasks.md`) completas · numeración `U3Tn`
@@ -48,7 +48,7 @@ de UC2, alineado con él.
 | `DeltaSequence` — una Δ por par, alineada | UC2 U2T1/U2T6 | ✅ contrato bloqueado por `DeltaSequenceContractTest` |
 | `SourceFileFilter` (`.java`) + `relevantChanges()` | UC2 U2T4/U2T5 | ✅ 100% cobertura |
 | `GitSourcePort.diff()` / `JGitAdapter.diff()` | UC2 U2T3 | ✅ A/M/D con renames |
-| `ParserPort`, `AstParserAdapter` | `docs/architecture.md` §4 | ⏳ solo `package-info` en `adapters/out/ast` |
+| `ParserPort`, `AstParserAdapter` | UC3 U3T4 | ✅ `parse(path, source) → CodeStructure` con JavaParser (`javaparser-core` 3.28.2) |
 | `StructuralAnalyzer` | `application/pipeline/package-info` | ⏳ nombrado, sin implementar |
 | `StructuralChange` | `docs/architecture.md` (árbol) | ⏳ anunciado en `domain/model`, sin crear |
 | `GitSourcePort` (contenido de un blob) | UC3 U3T2 | ✅ `content(handle, commit, path) → Optional<String>`, implementado en `JGitAdapter` |
@@ -62,7 +62,7 @@ de UC2, alineado con él.
 | **U3T1** | ✅ Modelos de estructura | `domain/model` | Tipos inmutables para lo que parsea y para $S_i$: clases, miembros, **dependencias (referencias de tipo completas)** y sus altas/bajas | `CodeStructure` (con `ClassStructure`, `MemberStructure`, `ClassKind`, `MemberKind`) + `StructuralChange` (con `FileStructureChange`, `ClassChange`, `ChangeKind`) + `CodeStructureTest` y `StructuralChangeTest` (12 tests) ✅ |
 | **U3T2** | ✅ Acceso a contenido | `ports`, `adapters/out/jgit` | Leer el blob de un archivo **en un commit concreto** (versión vieja y nueva de cada Δ) | `GitSourcePort.content(...) → Optional<String>` + `JGitAdapter` (`TreeWalk.forPath`, UTF-8, `OBJ_BLOB` para descartar directorios) + 6 tests: punto en el tiempo, ausente, UTF-8, directorio, handle ajeno, commit inexistente ✅ |
 | **U3T3** | ✅ Excepción de parseo | `domain/exception` | Errores de sintaxis sin mezclarlos con `ScopeException` ni `DiffException` | `ParseException` (`SYNTAX_ERROR`/`INVALID_INPUT`) + validador estático `requireNotBlank` + `DdvAssertions.assertParseThrows` + matriz en `docs/class-diagram.md` ✅ |
-| **U3T4** | Puerto y adaptador AST | `ports`, `adapters/out/ast` | `ParserPort.parse(código) → CodeStructure` con **JavaParser**, recolectando clases, miembros y **referencias de tipo** (imports, herencia y usos en firmas/cuerpos) | `ParserPort`, `AstParserAdapter` + tests (clases/interface/enum/record, anidamiento, métodos, campos, imports, extends/implements, tipos en firmas/cuerpos, error de sintaxis) |
+| **U3T4** | ✅ Puerto y adaptador AST | `ports`, `adapters/out/ast` | `ParserPort.parse(código) → CodeStructure` con **JavaParser**, recolectando clases, miembros y **referencias de tipo** (imports, herencia y usos en firmas/cuerpos) | `ParserPort`, `AstParserAdapter` (nivel `JAVA_25`, sin resolución de símbolos) + 9 tests: 4 tipos de clase, anidamiento cualificado, superTypes vs usages, imports wildcard/estáticos, miembros no se filtran entre clases, sintaxis, ruta en blanco, fuente vacía ✅ |
 | **U3T5** | Caso de uso StructuralAnalyzer | `application/pipeline` | Por cada Δ: abre el repo, lee contenidos viejo/nuevo de los `.java`, parsea ambos y **resta** estructuras → $S_i$ por par | `StructuralAnalyzer` + tests con puertos mockeados |
 | **U3T6** | Contrato hacia UC4 | `application/pipeline` | Garantizar que UC4 recibirá $S_i$ completo (clases, métodos añadidos, dependencias nuevas) sin código adhesivo | contract test estilo T9 + garantías en javadoc |
 | **U3T7** | E2E UC1 → UC2 → UC3 | `src/test` | Cadena real (JGit + parser) sobre un repo temporal cuyas clases evolucionan | `StructuralAnalyzerE2ETest` sin mocks |

@@ -101,7 +101,7 @@ Prohibido: `domain` importando de `application`, `ports` o `adapters`; `applicat
 | Puerto (`ports/`) | Adaptador (`adapters/out/`) | Responsabilidad |
 | :--- | :--- | :--- |
 | `GitSourcePort` | `JGitAdapter` | Abrir/clone del repo, resolver rango $C_1..C_n$, extraer diff entre $C_{i-1}, C_i$ |
-| `ParserPort` | `AstParserAdapter` | `parse(código) → CodeStructure` (clases, miembros, referencias de tipo); la resta viejo vs nuevo la hace `StructuralAnalyzer` → `StructuralChange` |
+| `ParserPort` | `AstParserAdapter` (JavaParser) | `parse(código) → CodeStructure` (clases, miembros, referencias de tipo); la resta viejo vs nuevo la hace `StructuralAnalyzer` → `StructuralChange` |
 | `RendererPort` | `MermaidRenderer` | `render(Sᵢ) → DiagramSpec` (futuro: `PlantUMLAdapter`) |
 | `StorePort` | `FileStoreAdapter` | Persistir/cargar $S_1..S_n$ y diagramas (requisito acumulativo de UC5) |
 
