@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC2: Ejecutar Detección de Diferencias (Δ)
 
-**Estado:** por iniciar (0/8)
+**Estado:** U2T1–U2T2 completadas (2/8)
 **Stack:** Java 25+, Maven, JGit, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesora:** UC1 completa (`docs/UC1-tasks.md`) · numeración `U2Tn` para no colisionar con las `Tn` de UC1
@@ -36,8 +36,8 @@ Iterar los commits $C_1..C_n$ del `AnalysisScope` resuelto por UC1 y, para cada 
 
 | # | Tarea | Paquete hexagonal | Descripción | Entregable |
 | :--- | :--- | :--- | :--- | :--- |
-| **U2T1** | Contrato de salida Δ | `domain/model` | Secuencia de `CommitDelta` alineada 1:1 con `consecutivePairs()`, inmutable y trazable al `AnalysisScope` de origen | `DeltaSequence` (record, espejo de `AnalysisScope`) + tests de contrato |
-| **U2T2** | Excepción tipada de Δ | `domain/exception` | Errores de extracción sin mezclarlos con el `ScopeException` del alcance | `DiffException` (+ migración de `FileChange`) y matriz de códigos en `docs/class-diagram.md` |
+| **U2T1** | ✅ Contrato de salida Δ | `domain/model` | Secuencia de `CommitDelta` alineada 1:1 con `consecutivePairs()`, inmutable y trazable al `AnalysisScope` de origen | `DeltaSequence` (record; invariante de nº de Δ y de orden validados en el constructor → `DiffException`) + `DeltaSequenceTest` (6 tests) ✅ |
+| **U2T2** | ✅ Excepción tipada de Δ | `domain/exception` | Errores de extracción sin mezclarlos con el `ScopeException` del alcance | `DiffException` (`INVALID_ARGUMENT`/`IO_ERROR`/`UNSUPPORTED`); `FileChange` migra; matriz en `docs/class-diagram.md` ✅ |
 | **U2T3** | Adaptador JGit: diff | `adapters/out/jgit` | `GitSourcePort.diff()` real: comparar árboles de `previous` y `current` → `FileChange` A/M/D, con detección de renames activada emitiendo `origen→DELETED` + `destino→ADDED`; traducir errores de JGit | `JGitAdapter.diff()` + tests (añadir, modificar, borrar, rename, binario, commit vacío, handle cerrado) |
 | **U2T4** | Filtro de ficheros fuente | `application/pipeline` | De todos los archivos del Δ, qué ficheros puede parsear UC3 (extensión del lenguaje MVP) | `SourceFileFilter` inyectable + tests |
 | **U2T5** | Caso de uso DiffExtractor | `application/pipeline` | Bucle UC2: `open → diff(Cᵢ₋₁, Cᵢ) por cada par → close` → `DeltaSequence` + vista filtrada para UC3 | `DiffExtractor` + tests con `GitSourcePort` mockeado (espejo de `ScopeResolverTest`) |

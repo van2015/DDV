@@ -1,6 +1,6 @@
 package ddv.domain.model;
 
-import ddv.domain.exception.ScopeException;
+import ddv.domain.exception.DiffException;
 
 import java.util.List;
 import java.util.Objects;
@@ -26,7 +26,7 @@ public record CommitDelta(Commit previous, Commit current, List<FileChange> file
     public record FileChange(String path, ChangeType type) {
         public FileChange {
             if (path == null || path.isBlank()) {
-                throw new ScopeException(ScopeException.Code.INVALID_ARGUMENT,
+                throw new DiffException(DiffException.Code.INVALID_ARGUMENT,
                         "La ruta del archivo no puede estar vacía");
             }
             path = path.trim();

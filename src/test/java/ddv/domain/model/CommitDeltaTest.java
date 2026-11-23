@@ -1,6 +1,6 @@
 package ddv.domain.model;
 
-import ddv.domain.exception.ScopeException;
+import ddv.domain.exception.DiffException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -19,9 +19,9 @@ class CommitDeltaTest {
     @DisplayName("FileChange with blank path throws INVALID_ARGUMENT")
     void blankPathThrowsInvalidArgument() {
         assertThatThrownBy(() -> new CommitDelta.FileChange("  ", CommitDelta.ChangeType.ADDED))
-                .isInstanceOf(ScopeException.class)
-                .extracting(e -> ((ScopeException) e).code())
-                .isEqualTo(ScopeException.Code.INVALID_ARGUMENT);
+                .isInstanceOf(DiffException.class)
+                .extracting(e -> ((DiffException) e).code())
+                .isEqualTo(DiffException.Code.INVALID_ARGUMENT);
     }
 
     @Test

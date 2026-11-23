@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — renombrado de paquetes `application` (`uc1`→`scope`, `uc5`→`evolution`).
+> **Última actualización:** 2026-11-23 — estado tras U2T1–U2T2 (`DeltaSequence`, `DiffException`).
 
 ---
 
@@ -80,6 +80,13 @@ classDiagram
         DELETED
     }
 
+    class DeltaSequence {
+        <<record>>
+        +AnalysisScope source
+        +List~CommitDelta~ deltas
+        +size() int
+    }
+
     class ScopeException {
         <<exception>>
         -Code code
@@ -95,6 +102,20 @@ classDiagram
         COMMIT_NOT_FOUND
         NOT_ANCESTOR
         EMPTY_RANGE
+    }
+
+    class DiffException {
+        <<exception>>
+        -Code code
+        +DiffException(Code code, String message)
+        +code() Code
+    }
+
+    class DiffCode {
+        <<enumeration: DiffException.Code>>
+        INVALID_ARGUMENT
+        IO_ERROR
+        UNSUPPORTED
     }
 
     class GitSourcePort {
@@ -165,6 +186,11 @@ classDiagram
     Range <|.. Between : implements
     Range <|.. LastN : implements
     ScopeException "1" *-- "1" Code : code
+    DiffException "1" *-- "1" DiffCode : code
+
+    %% Secuencia de Δ — salida del UC2 (U2T1)
+    DeltaSequence "1" *-- "1" AnalysisScope : source (trazabilidad)
+    DeltaSequence "1" *-- "0..*" CommitDelta : deltas (una por par)
 
     %% El puerto depende solo de tipos de dominio
     GitSourcePort ..> RepoScope : open(), resolveRange()
@@ -192,11 +218,12 @@ classDiagram
     AnalyzeCommand ..> ScopeException : captura → exit 1
     AnalyzeCommand *-- RangeArgs : ArgGroup exclusivo (--range | --last)
 
-    %% Invariantes: constructores compactos lanzan ScopeException
+    %% Invariantes: constructores compactos lanzan excepciones tipadas
     Commit ..> ScopeException : throws (INVALID_ARGUMENT)
     RepoScope ..> ScopeException : throws (INVALID_ARGUMENT)
     AnalysisScope ..> ScopeException : throws (EMPTY_RANGE)
-    CommitDelta ..> ScopeException : throws (INVALID_ARGUMENT)
+    CommitDelta ..> DiffException : throws (INVALID_ARGUMENT)
+    DeltaSequence ..> DiffException : throws (alineación)
 ```
 
 ---
@@ -221,7 +248,9 @@ classDiagram
 - **`AnalyzeCommand` (T8)** es el adaptador de entrada: `Callable<Integer>` de picocli con `@Spec` para escribir por los *writers* de la `CommandLine` (testeable sin capturar `System.out`). Salidas: **exit 0** (ok), **exit 1** (`ScopeException` → `Error [CÓDIGO]: mensaje` por stderr), **exit 2** (errores de uso de picocli: faltan/exclusivas opciones o `--range` sin `..`).
 - **`DdvCommand` (T8)** es la raíz de composición: único punto que junta `JGitAdapter` + `ScopeResolver`; con la raíz sin subcomando imprime la ayuda. El overload `execute(args, out, err)` (T10) es la costura testeable para el E2E: propaga los *writers* a los subcomandos porque picocli no lo hace (cada subcomando tiene su propia `CommandLine`).
 - **`AnalysisScope` es contrato estable (T9):** UC2–UC4 se apoyan en orden ascendente, inmutabilidad y `consecutivePairs()` en el mismo orden. Bloqueado por `AnalysisScopeTest` (instancias idénticas, pares inmutables, trazabilidad `source`, igualdad por valor) y `GitSourcePortContractTest` (reproduce la cabecera del bucle `open → diff(par) → close` contra un puerto falso).
-- **`Code`** está anidado en `ScopeException` (`ScopeException.Code`).
+- **`DeltaSequence` es contrato de salida de UC2 (U2T1):** una Δ por par, alineada 1:1 y en el mismo orden que `consecutivePairs()` (el invariante se valida en el constructor → `DiffException`), inmutable y trazable al `AnalysisScope` de origen; UC3 la recorre sin código adhesivo.
+- **`DiffException` (U2T2)** separa los fallos de detección de Δ de `ScopeException` (alcance, UC1): `FileChange` migró a ella. Cada excepción nombra la preocupación que representa.
+- **`Code`** está anidado en `ScopeException`; `DiffException` tiene el suyo propio (representado como `DiffCode` para no colisionar en el diagrama).
 - **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
 ### Matriz de validaciones (T7)
@@ -235,11 +264,19 @@ classDiagram
 | `NOT_ANCESTOR` | `JGitAdapter.resolveRange` | `A` no es ancestro de `B` (`isMergedInto`) |
 | `EMPTY_RANGE` | `AnalysisScope` / `JGitAdapter` | lista vacía, único commit o `A == B`; HEAD sin crear |
 
+### Matriz de validaciones — `DiffException` (U2T2)
+
+| Código | Origen | Causa |
+| :--- | :--- | :--- |
+| `INVALID_ARGUMENT` | `CommitDelta.FileChange` / `DeltaSequence` | ruta en blanco; nº de Δ ≠ nº de pares; Δ fuera de orden respecto a los pares |
+| `IO_ERROR` | `JGitAdapter.diff` *(previsto U2T3)* | fallo de lectura al comparar los árboles de `previous` y `current` |
+| `UNSUPPORTED` | `JGitAdapter.diff` *(previsto U2T3)* | tipo de cambio no soportado por el MVP (p. ej. submódulo) |
+
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC2 | `JGitAdapter.diff()` (Δ entre commits consecutivos) |
+| UC2 (U2T3–U2T5) | `JGitAdapter.diff()`, `DiffExtractor`, `SourceFileFilter` |
 | UC3 | `ParserPort`, `AstParserAdapter`, `StructuralChange` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |
