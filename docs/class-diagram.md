@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — estado tras U2T4 (`SourceFileFilter`).
+> **Última actualización:** 2026-11-23 — estado tras U2T5 (`DiffExtractor`).
 
 ---
 
@@ -164,6 +164,15 @@ classDiagram
         +isRelevant(FileChange change) boolean
     }
 
+    class DiffExtractor {
+        <<use case: pipeline (UC2)>>
+        -GitSourcePort gitSourcePort
+        -SourceFileFilter sourceFileFilter
+        +DiffExtractor(GitSourcePort gitSourcePort, SourceFileFilter sourceFileFilter)
+        +extract(AnalysisScope scope) DeltaSequence
+        +relevantChanges(DeltaSequence sequence) List~FileChange~
+    }
+
     class AnalyzeCommand {
         <<adapter: in/cli>>
         +AnalyzeCommand(ScopeResolver scopeResolver)
@@ -225,6 +234,13 @@ classDiagram
     %% Filtro de relevancia del UC2 (U2T4)
     SourceFileFilter ..> CommitDelta : selecciona files analizables
 
+    %% Caso de uso UC2 (U2T5)
+    DiffExtractor ..> GitSourcePort : usa (inyección)
+    DiffExtractor ..> AnalysisScope : entrada (contrato de UC1)
+    DiffExtractor ..> DeltaSequence : salida (una Δ por par)
+    DiffExtractor ..> SourceFileFilter : inyecta el filtro de lenguaje
+    DiffExtractor ..> CommitDelta : relevantChanges() para UC3
+
     %% Adaptador de entrada (T8)
     DdvCommand *-- AnalyzeCommand : registra subcomando
     DdvCommand ..> ScopeResolver : ensambla (raíz de composición)
@@ -267,6 +283,7 @@ classDiagram
 - **`DeltaSequence` es contrato de salida de UC2 (U2T1):** una Δ por par, alineada 1:1 y en el mismo orden que `consecutivePairs()` (el invariante se valida en el constructor → `DiffException`), inmutable y trazable al `AnalysisScope` de origen; UC3 la recorre sin código adhesivo.
 - **`DiffException` (U2T2)** separa los fallos de detección de Δ de `ScopeException` (alcance, UC1): `FileChange` migró a ella. Cada excepción nombra la preocupación que representa.
 - **`SourceFileFilter` (U2T4)** decide qué archivos del Δ parsea UC3, pero solo por **extensión** (`.java` para el MVP; configurable, p. ej. `.py`): la relevancia estructural real la determina UC3 sobre el AST. Es inyectable para que el lenguaje no esté cableado en el pipeline.
+- **`DiffExtractor` (U2T5)** es el caso de uso UC2: `open → diff(par) → close` sobre `consecutivePairs()`, ensamblando `DeltaSequence` (el invariante de alineación del record detecta un puerto que devuelva Δs fuera de orden). `relevantChanges()` entrega a UC3 la lista plana de archivos analizables, en orden de aparición.
 - **`Code`** está anidado en `ScopeException`; `DiffException` tiene el suyo propio (representado como `DiffCode` para no colisionar en el diagrama).
 - **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
@@ -293,7 +310,6 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC2 (U2T5) | `DiffExtractor` |
 | UC3 | `ParserPort`, `AstParserAdapter`, `StructuralChange` |
 | UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |
