@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter.resolveBetween` descompuesto).
+> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados).
 
 ---
 
@@ -136,16 +136,23 @@ classDiagram
         +open(RepoScope scope) RepositoryHandle
         +resolveRange(RepositoryHandle repository, RepoScope scope) AnalysisScope
         +diff(RepositoryHandle repository, Commit previous, Commit current) CommitDelta
+        -UNSUPPORTED_HANDLE String
         -openLocal(String location) RepositoryHandle
         -openRemote(String url) RepositoryHandle
+        -jgitHandleOf(RepositoryHandle repository) Optional~JGitHandle~
+        -noAccess(Exception cause) ScopeException
         -resolveLastN(Git git, int n) List~Commit~
         -resolveBetween(Git git, Between range) List~Commit~
         -requireResolvable(Repository repository, String revision) ObjectId
         -requireAncestralStart(Repository repository, Between range, ObjectId fromId, ObjectId toId) Commit
-        -collectExclusiveCommits(Git git, ObjectId toId, ObjectId fromId) List~Commit~
+        -toChronological(LogCommand log) List~Commit~
+        -parseCommit(RevWalk walk, AnyObjectId id, String label) RevCommit
+        -toDomain(RevCommit commit) Commit
+        -ioError(Exception cause, Commit previous, Commit current) DiffException
         -scanChanges(Repository repository, String previousId, String currentId) List~FileChange~
         -treeOf(RevWalk walk, Repository repository, String id) RevTree
         -toFileChanges(DiffEntry entry) List~FileChange~
+        -deleteRecursively(Path root) void
     }
 
     class JGitHandle {
@@ -279,7 +286,7 @@ classDiagram
 - **`Commit` no tiene `delta()`:** la Δ se calcula en el adaptador vía `GitSourcePort.diff()`; el dominio solo ensambla `CommitDelta` (discusión 2026-11-21 — evita que `Commit` dependa de infraestructura).
 - **`CommitDelta`** pertenece al UC2 pero su contrato nace en T3 (firma de `GitSourcePort.diff`).
 - **`RepositoryHandle` es opaco:** su implementación real es `JGitHandle` (clase interna privada de `JGitAdapter`); maneja `Git` y limpia el workspace temporal del clon en `close()`.
-- **`JGitAdapter` traduce errores** de JGit a `ScopeException` (`REPO_NOT_FOUND` en local, `NO_ACCESS` en remoto).
+- **`JGitAdapter` traduce errores** de JGit a `ScopeException` (`REPO_NOT_FOUND` en local, `NO_ACCESS` en remoto). La traducción vive en `noAccess()` / `ioError()`: conservan los fallos ya tipados por el adaptador y envuelven solo lo inesperado; el handle ajeno se rechaza una sola vez en `jgitHandleOf()` con `INVALID_ARGUMENT` y el mensaje `UNSUPPORTED_HANDLE`, eligiendo la excepción que corresponde al caso de uso.
 - **`resolveRange()` (T5)** resuelve `A..B` (inclusivo, con `isMergedInto` → `NOT_ANCESTOR`) y últimos N (`setMaxCount` → `EMPTY_RANGE` si HEAD no existe), siempre en **orden ascendente**.
 - **`diff()` (U2T3)** compara los árboles de `previous` y `current` con `DiffFormatter` (`setDetectRenames(true)`) y mapea `ADD/MODIFY/DELETE` a `ChangeType`; un **rename se emite como `DELETED`(origen) + `ADDED`(destino)** y `COPY` → `UNSUPPORTED`. `DiffCommand` de JGit no expone detección de renames, por eso se usa `DiffFormatter.scan()`.
 - **`ScopeResolver` (T6)** orquesta `open → resolveRange → close` con *try-with-resources* mediante inyección de `GitSourcePort`; no conoce JGit ni valida directamente (validan dominio y adaptador).

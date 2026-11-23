@@ -9,6 +9,8 @@ import ddv.domain.model.RepoScope;
 import ddv.ports.GitSourcePort;
 import ddv.ports.RepositoryHandle;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.LogCommand;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.errors.IncorrectObjectTypeException;
@@ -29,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * {@link GitSourcePort} implementado con JGit.
@@ -39,6 +42,9 @@ import java.util.List;
  * para distinguir "no existe" de "sin autenticación").</p>
  */
 public class JGitAdapter implements GitSourcePort {
+
+    private static final String UNSUPPORTED_HANDLE =
+            "Handle de repositorio no soportado por JGitAdapter";
 
     @Override
     public RepositoryHandle open(RepoScope scope) {
@@ -83,24 +89,32 @@ public class JGitAdapter implements GitSourcePort {
         }
     }
 
+    // El puerto es opaco: solo este adaptador conoce el tipo real del handle,
+    // así que uno ajeno se rechaza con INVALID_ARGUMENT tipado por el caso de uso
+    private static Optional<JGitHandle> jgitHandleOf(RepositoryHandle repository) {
+        return repository instanceof JGitHandle handle ? Optional.of(handle) : Optional.empty();
+    }
+
     @Override
     public AnalysisScope resolveRange(RepositoryHandle repository, RepoScope scope) {
-        if (!(repository instanceof JGitHandle handle)) {
-            throw new ScopeException(ScopeException.Code.INVALID_ARGUMENT,
-                    "Handle de repositorio no soportado por JGitAdapter");
-        }
+        var handle = jgitHandleOf(repository).orElseThrow(
+                () -> new ScopeException(ScopeException.Code.INVALID_ARGUMENT, UNSUPPORTED_HANDLE));
         try {
             var commits = switch (scope.range()) {
                 case RepoScope.Range.Between between -> resolveBetween(handle.git, between);
                 case RepoScope.Range.LastN lastN -> resolveLastN(handle.git, lastN.n());
             };
             return new AnalysisScope(scope, commits);
-        } catch (ScopeException e) {
-            throw e;
         } catch (Exception e) {
-            throw new ScopeException(ScopeException.Code.NO_ACCESS,
-                    "No se pudo resolver el rango de commits", e);
+            throw noAccess(e);
         }
+    }
+
+    /** Conserva los fallos de alcance ya tipados; traduce el resto a {@code NO_ACCESS}. */
+    private static ScopeException noAccess(Exception cause) {
+        return cause instanceof ScopeException scope ? scope
+                : new ScopeException(ScopeException.Code.NO_ACCESS,
+                        "No se pudo resolver el rango de commits", cause);
     }
 
     private static List<Commit> resolveLastN(Git git, int n) throws Exception {
@@ -108,13 +122,7 @@ public class JGitAdapter implements GitSourcePort {
             throw new ScopeException(ScopeException.Code.EMPTY_RANGE,
                     "El repositorio no tiene commits (HEAD sin crear)");
         }
-        var commits = new ArrayList<Commit>();
-        for (var rev : git.log().setMaxCount(n).call()) {
-            commits.add(toDomain(rev));
-        }
-        // git.log() entrega lo más reciente primero; AnalysisScope exige orden ascendente
-        Collections.reverse(commits);
-        return commits;
+        return toChronological(git.log().setMaxCount(n));
     }
 
     private static List<Commit> resolveBetween(Git git, RepoScope.Range.Between range) throws Exception {
@@ -124,7 +132,7 @@ public class JGitAdapter implements GitSourcePort {
 
         var commits = new ArrayList<Commit>();
         commits.add(requireAncestralStart(repository, range, fromId, toId));
-        commits.addAll(collectExclusiveCommits(git, toId, fromId));
+        commits.addAll(toChronological(git.log().add(toId).not(fromId)));
         return commits;
     }
 
@@ -154,9 +162,10 @@ public class JGitAdapter implements GitSourcePort {
         }
     }
 
-    private static List<Commit> collectExclusiveCommits(Git git, ObjectId toId, ObjectId fromId) throws Exception {
+    // git.log() entrega lo más reciente primero; AnalysisScope exige orden ascendente
+    private static List<Commit> toChronological(LogCommand log) throws GitAPIException {
         var commits = new ArrayList<Commit>();
-        for (var rev : git.log().add(toId).not(fromId).call()) {
+        for (var rev : log.call()) {
             commits.add(toDomain(rev));
         }
         Collections.reverse(commits);
@@ -180,20 +189,22 @@ public class JGitAdapter implements GitSourcePort {
 
     @Override
     public CommitDelta diff(RepositoryHandle repository, Commit previous, Commit current) {
-        if (!(repository instanceof JGitHandle handle)) {
-            throw new DiffException(DiffException.Code.INVALID_ARGUMENT,
-                    "Handle de repositorio no soportado por JGitAdapter");
-        }
+        var handle = jgitHandleOf(repository).orElseThrow(
+                () -> new DiffException(DiffException.Code.INVALID_ARGUMENT, UNSUPPORTED_HANDLE));
         try {
             var files = scanChanges(handle.git.getRepository(), previous.id(), current.id());
             return new CommitDelta(previous, current, files);
-        } catch (DiffException e) {
-            throw e;
         } catch (Exception e) {
-            throw new DiffException(DiffException.Code.IO_ERROR,
-                    "No se pudo calcular el diff entre " + previous.shortId()
-                            + " y " + current.shortId(), e);
+            throw ioError(e, previous, current);
         }
+    }
+
+    /** Conserva los fallos de diff ya tipados; traduce el resto a {@code IO_ERROR}. */
+    private static DiffException ioError(Exception cause, Commit previous, Commit current) {
+        return cause instanceof DiffException diff ? diff
+                : new DiffException(DiffException.Code.IO_ERROR,
+                        "No se pudo calcular el diff entre " + previous.shortId()
+                                + " y " + current.shortId(), cause);
     }
 
     private static List<CommitDelta.FileChange> scanChanges(Repository repository,
