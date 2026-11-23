@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC2: Ejecutar Detección de Diferencias (Δ)
 
-**Estado:** U2T1–U2T7 completadas (7/8)
+**Estado:** U2T1–U2T8 completadas — **UC2 completa**
 **Stack:** Java 25+, Maven, JGit, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesora:** UC1 completa (`docs/UC1-tasks.md`) · numeración `U2Tn` para no colisionar con las `Tn` de UC1
@@ -25,10 +25,10 @@ Iterar los commits $C_1..C_n$ del `AnalysisScope` resuelto por UC1 y, para cada 
 | Pieza | Origen | Estado |
 | :--- | :--- | :--- |
 | `CommitDelta` / `FileChange` / `ChangeType` (A/M/D) | UC1 T3 + T7 | ✅ con tests — es exactamente la forma que registra este caso de uso |
-| `GitSourcePort.diff(handle, previous, current)` | UC1 T3 | ✅ firma congelada; implementación pendiente |
-| `JGitAdapter.diff()` | UC1 T4 | ⏳ lanza `UnsupportedOperationException` |
+| `GitSourcePort.diff(handle, previous, current)` | UC1 T3 | ✅ firma congelada — implementada en U2T3 |
+| `JGitAdapter.diff()` | UC1 T4 | ✅ `DiffFormatter.scan()` con renames (U2T3) |
 | `AnalysisScope.consecutivePairs()` | UC1 T2/T9 | ✅ lista de pares $(C_{i-1}, C_i)$ en orden ascendente |
-| `DiffExtractor` (etapa del pipeline) | `application/pipeline` | ⏳ solo `package-info` |
+| `DiffExtractor` (etapa del pipeline) | `application/pipeline` | ✅ implementada en U2T5 |
 
 ---
 
@@ -43,7 +43,7 @@ Iterar los commits $C_1..C_n$ del `AnalysisScope` resuelto por UC1 y, para cada 
 | **U2T5** | ✅ Caso de uso DiffExtractor | `application/pipeline` | Bucle UC2: `open → diff(Cᵢ₋₁, Cᵢ) por cada par → close` → `DeltaSequence` + vista filtrada para UC3 | `DiffExtractor.extract()` (try-with-resources, inyección de puerto y filtro) + `relevantChanges()`; 7 tests (Mockito: orden open→diffs→close, cierre ante fallo, alineación) ✅ |
 | **U2T6** | ✅ Contrato hacia UC3 | `application/pipeline` | Garantizar que UC3 consumirá (par, Δ) alineados sin código adhesivo | `DeltaSequenceContractTest` (3 tests: par↔Δ alineado para un analizador falso, `relevantChanges()` solo `.java`, scope de 1 commit) + garantías en javadoc ✅ |
 | **U2T7** | ✅ E2E UC1 → UC2 | `src/test` | Encadenar `ScopeResolver` + `DiffExtractor` con JGit real sobre repos temporales | `DiffExtractorE2ETest` (3 tests, sin mocks): historia A/B/README con A→M→D, `relevantChanges()` solo `.java`, repo inexistente falla en UC1 antes de difuminar ✅ |
-| **U2T8** | QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo + `class-diagram.md` + `architecture.md` §5 con la etapa real |
+| **U2T8** | ✅ QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo · `class-diagram.md` (cajas `DeltaSequence`, `DiffException`, `SourceFileFilter`, `DiffExtractor`) · `architecture.md` §5 con la etapa real ✅ |
 
 ---
 
@@ -91,4 +91,18 @@ flowchart LR
 
 ## Métricas de cobertura (JaCoCo)
 
-*(se rellena en U2T8 — gate activo: `PACKAGE ≥ 0.80` líneas en `mvn clean test`)*
+*(gate activo: `PACKAGE ≥ 0.80` líneas en toda fase `test` de `mvn clean test`)*
+
+| Paquete | Instrucciones | Líneas | Objetivo ≥80% |
+| :--- | :--- | :--- | :--- |
+| `ddv.application.pipeline` | 100,0% | 100,0% | ✅ |
+| `ddv.application.scope` | 100,0% | 100,0% | ✅ |
+| `ddv.domain.model` | 99,3% | 100,0% | ✅ |
+| `ddv.domain.exception` | 100,0% | 100,0% | ✅ |
+| `ddv.adapters.out.jgit` | 90,3% | 88,1% | ✅ |
+| `ddv.adapters.in.cli` | 92,9% | 91,7% | ✅ |
+| **Total** | **94,2%** | **94,2% (275/292 líneas)** | ✅ |
+
+**89 tests, 0 fallos, 0 errores** (2026-11-23). Reporte HTML/CSV en `target/site/jacoco/`.
+Las líneas sin cubrir de `adapters/out/jgit` son ramas de error poco reproducibles (fallo al
+crear el workspace del clon, `IOException` en la limpieza) y el caso `COPY` del diff.

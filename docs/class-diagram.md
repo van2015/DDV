@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-23 — estado tras U2T7 (E2E UC1 → UC2).
+> **Última actualización:** 2026-11-23 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`).
 
 ---
 
