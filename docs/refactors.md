@@ -2,7 +2,7 @@
 
 **Estado:** ❌ ninguna implementada — **diferidas a propósito**
 **Origen:** revisión de código de 2026-11-23 + discusión de diseño posterior
-**Regla de este documento:** no se anticipan. Cada entrada declara su **gatillo** — la evidencia que justificaría hacerla — y su **superficie**. Hasta que el gatillo salga, tocar ese código por otro motivo **no** activa la refactorización.
+**Regla de este documento:** no se anticipan. Cada entrada de **A** y **B** declara su **gatillo** — la evidencia que justificaría hacerla — y su **superficie**. Hasta que el gatillo salga, tocar ese código por otro motivo **no** activa la refactorización. La sección **C** no es deuda: es análisis de referencia (dónde podría aparecer un subtipo nuevo) para aplicarlo al diseñar UC3/UC4/UC5.
 
 > Pendiente menor relacionado: dos `UnsupportedOperationException` en tests siguen con mensaje en español (`DeltaSequenceContractTest`, `GitSourcePortContractTest`), lo que incumple la regla 5 del `AGENTS.md`. Es corrección, no refactorización: arreglarse al tocar esos tests.
 
@@ -115,7 +115,33 @@ classDiagram
 
 ---
 
-## C. Resuelto en la revisión de 2026-11-23 (histórico)
+## C. Puntos de extensión por tipo (`instanceof` / `switch`) — *análisis para UC3/UC5*
+
+No es deuda: es el mapa de **dónde podría aparecer un subtipo nuevo** y, por tanto, un `switch` futuro. Inventario completo del código actual — **3 `instanceof`, 3 `switch`, 0 castings** (los 20 `((ScopeException) e)` de los tests se eliminaron con `DdvAssertions`).
+
+| # | Ubicación | Qué comprueba | ¿Punto de extensión? | Riesgo de `switch` futuro |
+| :--- | :--- | :--- | :--- | :--- |
+| **E1** | `JGitAdapter.jgitHandleOf` → `instanceof JGitHandle` | Propiedad del handle en una frontera opaca | **No.** Es de *propiedad*, no de *despacho*: cada adaptador valida el suyo y solo hay un subtipo — no puede crecer en cadena `if/else` | Ninguno |
+| **E2** | `JGitAdapter.noAccess` → `instanceof ScopeException` | Conservar el fallo ya tipado, envolver lo inesperado | **No.** `ScopeException` es hoja del árbol; estable salvo que cambie la taxonomía (R2) | Ninguno |
+| **E3** | `JGitAdapter.ioError` → `instanceof DiffException` | Ídem, para el UC2 | Ídem | Ninguno |
+| **E4** | `AnalyzeCommand.describe` — `switch` sobre `RepoScope.Range` (**sellado**) | Renderizar el rango en la CLI | **Sí.** Aparecer un `Range.Since(date)` o `Range.Branch(name)` obliga a tocarlo | **Bajo:** sin `default`, javac falla al compilar — nunca en runtime |
+| **E5** | `JGitAdapter.resolveRange` — `switch` sobre `RepoScope.Range` | Resolver los commits del rango | **Sí — el mismo subtipo que E4, en otra capa** | **Bajo:** ídem |
+| **E6** | `JGitAdapter.toFileChanges` — `switch` sobre `DiffEntry.ChangeType` (enum de **JGit**) | `ADD/MODIFY/DELETE/RENAME/COPY` → `ChangeType` | **Sí, pero cerrado por un tercero** — no podemos sellarlo | **Bajo:** si JGit añade constante, javac falla y se decide el caso (hoy `COPY` → `UNSUPPORTED`) |
+| **E7** | *(previsión UC3)* ramificar por `CommitDelta.ChangeType` | Añadido / modificado / eliminado | **Sí, aún no existe código** | Empezar con `switch` exhaustivo sobre el enum |
+
+**Lectura:** E1–E3 son comprobaciones de **propiedad**, no de despacho — no hay cadena que crezca. E4–E6 son los únicos sitios donde podría surgir un `switch` nuevo y **los tres están protegidos por el compilador** (sellados y enums sin `default`). Tocar E4 *y* E5 ante un subtipo nuevo **no es duplicación**: son dos responsabilidades distintas (renderizar en la CLI vs. resolver en el adaptador).
+
+**Reglas para UC3/UC4/UC5 — cómo no llegar al `if instanceof … else if`:**
+
+1. **Tipos nuevos → `sealed` + `switch` exhaustivo *sin* `default`.** El subtipo obliga a compilar el caso: el fallo sale en compilación, no en producción. UC3 modelará tipos de nodo (clase, método, import) — **sellar desde el primer día**.
+2. **Si el comportamiento por subtipo crece → polimorfismo**, no más ramas: el método baja al subtipo y el `switch` desaparece.
+3. **`default:` prohibido** en switches sobre tipos propios: convierte el subtipo olvidado en un caso silencioso.
+4. **Nunca cadena `if (x instanceof A) … else if (x instanceof B) …`** sobre un conjunto cerrado: es el `switch` que queremos evitar, pero sin su protección del compilador.
+5. Los `instanceof` de frontera opaca (E1) son legítimos y **no** deben migrarse a polimorfismo: `RepositoryHandle` es opaco a propósito (regla de la arquitectura hexagonal).
+
+---
+
+## D. Resuelto en la revisión de 2026-11-23 (histórico)
 
 | Hallazgo | Resultado |
 | :--- | :--- |
