@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC4: Generar Diagrama UML por Commit
 
-**Estado:** por iniciar (0/7) — decisiones tomadas (ver abajo)
+**Estado:** U4T1 completada (1/7)
 **Stack:** Java 25+, Maven, JGit, JavaParser, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesoras:** UC1, UC2 y UC3 completas · numeración `U4Tn`
@@ -40,9 +40,9 @@ alineado con el `StructuralSequence` de UC3.
 | `StructuralChange.delta` (commits del par) + `ClassChange` (alta/baja, miembros y dependencias) | UC3 U3T1/U3T5 | ✅ con trazabilidad |
 | **Lo que UC4 necesita leer** | UC3 U3T6 | ✅ fijado por `StructuralSequenceContractTest`: un diagrama por Δ en orden, con commits, clases, miembros y dependencias añadidos |
 | `RendererPort` → `MermaidRenderer` | `adapters/out/mermaid/package-info` | ⏳ solo `package-info` («Se implementará en la fase UC4») |
-| `DiagramSpec` | `docs/architecture.md` (árbol de dominio) | ⏳ anunciado en `domain/model`, sin crear |
+| `DiagramSpec` | `docs/architecture.md` (árbol de dominio) | ✅ creado en U4T1 (con `DiagramException`) |
 | `DiagramGenerator` | `application/pipeline/package-info` y `architecture.md` §5 | ⏳ nombrado en el pipeline, sin implementar |
-| `StorePort` → `FileStoreAdapter` | `adapters/out/file/package-info` | ⏳ declarado como «requisito acumulativo del UC5» (decisión 3 puede traerlo adelante) |
+| `StorePort` → `FileStoreAdapter` | `adapters/out/file/package-info` | ⏳ la decisión 3 lo trae adelante a UC4 (U4T4); UC5 lo amplía con S₁..Sₙ |
 
 ---
 
@@ -50,7 +50,7 @@ alineado con el `StructuralSequence` de UC3.
 
 | # | Tarea | Paquete hexagonal | Descripción | Entregable |
 | :--- | :--- | :--- | :--- | :--- |
-| **U4T1** | Modelo de diagrama | `domain/model` | Representación neutra y sin dependencias de formato: nodos de clase con su estado (añadida/modificada/eliminada) y miembros añadidos, aristas de dependencia nueva, etiqueta del commit | `DiagramSpec` (y anidados) + tests de contrato |
+| **U4T1** | ✅ Modelo de diagrama | `domain/model` | Representación neutra y sin dependencias de formato: nodos de clase con su estado (añadida/modificada/eliminada) y miembros añadidos, aristas de dependencia nueva, etiqueta del commit | `DiagramSpec` (con `Node`, `Edge`; reutiliza `StructuralChange.ChangeKind`) + `DiagramException` (`INVALID_INPUT`/`WRITE_ERROR`) + `DiagramSpecTest` (7 tests) ✅ |
 | **U4T2** | Puerto y adaptador de render | `ports`, `adapters/out/mermaid` | `RendererPort.render(DiagramSpec) → String` con `MermaidRenderer` emitiendo sintaxis `classDiagram` válida | puerto + adaptador + tests (nodos, aristas, estilos A/M/R, escaping de nombres, spec vacía) |
 | **U4T3** | Caso de uso DiagramGenerator | `application/pipeline` | `StructuralSequence` → un `DiagramSpec` por Δ con las estructuras **añadidas o modificadas significativamente**; los commits sin cambios producen un spec vacío que el render convierte en placeholder | `DiagramGenerator` + tests con secuencias construidas |
 | **U4T4** | Exportación a disco | `ports`, `adapters/out/file` | Escribir cada diagrama como `.md` con su bloque Mermaid, reproducible y versionable (decisión 3) | puerto + `FileStoreAdapter` + tests con `@TempDir` |

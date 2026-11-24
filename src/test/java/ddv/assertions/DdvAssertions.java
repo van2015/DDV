@@ -1,5 +1,6 @@
 package ddv.assertions;
 
+import ddv.domain.exception.DiagramException;
 import ddv.domain.exception.DiffException;
 import ddv.domain.exception.ParseException;
 import ddv.domain.exception.ScopeException;
@@ -38,6 +39,14 @@ public final class DdvAssertions {
             ParseException.Code expected) {
         Assertions.assertThatThrownBy(shouldRaise)
                 .isInstanceOfSatisfying(ParseException.class,
+                        actual -> Assertions.assertThat(actual.code()).isEqualTo(expected));
+    }
+
+    /** Asserts the call throws a {@link DiagramException} carrying the expected code. */
+    public static void assertDiagramThrows(ThrowableAssert.ThrowingCallable shouldRaise,
+            DiagramException.Code expected) {
+        Assertions.assertThatThrownBy(shouldRaise)
+                .isInstanceOfSatisfying(DiagramException.class,
                         actual -> Assertions.assertThat(actual.code()).isEqualTo(expected));
     }
 }

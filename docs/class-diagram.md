@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados.
+> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados. **UC4 U4T1:** `DiagramSpec` (+ `DiagramException`).
 
 ---
 
@@ -138,6 +138,27 @@ classDiagram
         +size() int
     }
 
+    class DiagramSpec {
+        <<record>>
+        +Commit previous
+        +Commit current
+        +List~Node~ nodes
+        +List~Edge~ edges
+    }
+
+    class Node {
+        <<nested: DiagramSpec>>
+        +String name
+        +ChangeKind state
+        +List~MemberStructure~ addedMembers
+    }
+
+    class Edge {
+        <<nested: DiagramSpec>>
+        +String source
+        +String target
+    }
+
     class FileStructureChange {
         <<nested: StructuralChange>>
         +String path
@@ -204,6 +225,19 @@ classDiagram
         <<enumeration: ParseException.Code>>
         SYNTAX_ERROR
         INVALID_INPUT
+    }
+
+    class DiagramException {
+        <<exception>>
+        -Code code
+        +DiagramException(Code code, String message)
+        +code() Code
+    }
+
+    class DiagramCode {
+        <<enumeration: DiagramException.Code>>
+        INVALID_INPUT
+        WRITE_ERROR
     }
 
     class GitSourcePort {
@@ -359,6 +393,14 @@ classDiagram
     StructuralSequence "1" *-- "0..*" StructuralChange : changes (uno por Δ)
     StructuralSequence ..> DiffException : throws (alineación)
 
+    %% Diagrama — salida del UC4 (U4T1)
+    DiagramSpec "1" *-- "1" Commit : previous, current (etiqueta)
+    DiagramSpec "1" *-- "0..*" Node : nodes (clases cambiadas)
+    DiagramSpec "1" *-- "0..*" Edge : edges (dependencias nuevas)
+    Node "1" *-- "0..*" MemberStructure : addedMembers
+    Node "1" --> "1" ChangeKind : state (reutiliza el enum de Sᵢ)
+    DiagramException "1" *-- "1" DiagramCode : code
+
     %% El puerto depende solo de tipos de dominio
     GitSourcePort ..> RepoScope : open(), resolveRange()
     GitSourcePort ..> RepositoryHandle : open()
@@ -419,6 +461,7 @@ classDiagram
     DeltaSequence ..> DiffException : throws (alineación)
     CodeStructure ..> ParseException : throws (INVALID_INPUT)
     StructuralChange ..> ParseException : throws (INVALID_INPUT)
+    DiagramSpec ..> DiagramException : throws (INVALID_INPUT)
 ```
 
 ---
@@ -453,7 +496,8 @@ classDiagram
 - **`ParseException` (U3T3)** es la tercera excepción tipada: `SYNTAX_ERROR` (sintaxis) e `INVALID_INPUT` (textos en blanco, vía el validador estático `requireNotBlank`).
 - **`SourceFileFilter` (U2T4)** decide qué archivos del Δ parsea UC3, pero solo por **extensión** (`.java` para el MVP; configurable, p. ej. `.py`): la relevancia estructural real la determina UC3 sobre el AST. Es inyectable para que el lenguaje no esté cableado en el pipeline. El constructor **normaliza** las extensiones (minúsculas, para que la coincidencia `endsWith` sea insensible a mayúsculas en ambos lados) y **valida** que lleven punto (`INVALID_ARGUMENT` en caso contrario); las que solo difieren en mayúsculas se deduplican.
 - **`DiffExtractor` (U2T5)** es el caso de uso UC2: `open → diff(par) → close` sobre `consecutivePairs()`, ensamblando `DeltaSequence` (el invariante de alineación del record detecta un puerto que devuelva Δs fuera de orden). `relevantChanges()` entrega a UC3 la lista plana de archivos analizables, en orden de aparición.
-- **`Code`** está anidado en `ScopeException`; `DiffException` y `ParseException` tienen el suyo propio (representados como `DiffCode` y `ParseCode` para no colisionar en el diagrama).
+- **`Code`** está anidado en `ScopeException`; `DiffException`, `ParseException` y `DiagramException` tienen el suyo propio (representados como `DiffCode`, `ParseCode` y `DiagramCode` para no colisionar en el diagrama).
+- **`DiagramSpec` (U4T1)** es la representación *neutra de lenguaje* del diagrama de un commit: etiqueta (`previous`/`current`), nodos de clase con su `ChangeKind` (reutiliza el enum de Sᵢ) y miembros añadidos, y aristas de dependencia nueva — **solo cambios significativos** (decisión 5 de UC4). Un spec vacío = commit sin cambios, que el render convertirá en placeholder (decisión 4). Sus validaciones usan `DiagramException` (decisión de implementación: una excepción tipada por UC, complementa `WRITE_ERROR` para U4T4).
 - **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
 ### Matriz de validaciones (T7)
@@ -482,9 +526,16 @@ classDiagram
 | `INVALID_INPUT` | `CodeStructure` / `StructuralChange` | nombre de clase, miembro o ruta en blanco (`requireNotBlank`) |
 | `SYNTAX_ERROR` | `AstParserAdapter` | el código fuente tiene errores de sintaxis (con línea/columna) o tipo de declaración no soportado |
 
+### Matriz de validaciones — `DiagramException` (U4T1)
+
+| Código | Origen | Causa |
+| :--- | :--- | :--- |
+| `INVALID_INPUT` | `DiagramSpec.Node` / `DiagramSpec.Edge` | nombre de clase, origen o destino de la arista en blanco |
+| `WRITE_ERROR` | `FileStoreAdapter` *(previsto U4T4)* | no se pudo escribir el diagrama en disco |
+
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC4 | `RendererPort`, `MermaidRenderer`, `DiagramSpec` |
+| UC4 (U4T2–U4T4) | `RendererPort`, `MermaidRenderer`, `DiagramGenerator`, `StorePort` + `FileStoreAdapter` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |
