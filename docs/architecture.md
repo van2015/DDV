@@ -125,7 +125,7 @@ flowchart LR
     S["AnalysisScope<br/>(C₁..Cₙ)"] --> L{"para cada<br/>Cᵢ"}
     L -->|"Cᵢ₋₁, Cᵢ"| D["DiffExtractor<br/>(GitSourcePort)"]
     D -->|"DeltaSequence<br/>+ relevantChanges()"| A["StructuralAnalyzer<br/>(ParserPort)"]
-    A -->|"Sᵢ"| G["DiagramGenerator<br/>(RendererPort)"]
+    A -->|"StructuralSequence"| G["DiagramGenerator"]
     G -->|"DiagramSpec"| ST["StorePort<br/>acumula Sᵢ"]
     ST --> L
     L -->|"fin del rango"| R["UC5: EvolutionComparer<br/>(lee StorePort)"]

@@ -4,6 +4,9 @@ import ddv.domain.exception.DiagramException;
 import ddv.domain.model.CodeStructure.MemberStructure;
 import ddv.domain.model.StructuralChange.ChangeKind;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -58,6 +61,49 @@ public record DiagramSpec(Commit previous, Commit current, List<Node> nodes, Lis
             requireNotBlank(source, "El origen de la arista no puede estar vacío");
             requireNotBlank(target, "El destino de la arista no puede estar vacío");
         }
+    }
+
+    /**
+     * Mapea un $S_i$ a su diagrama: cada clase cambiada es un nodo y cada
+     * dependencia nueva una arista hacia su nombre simple — si el destino
+     * también cambió en este commit se usa su nombre calificado, para que la
+     * arista apunte al nodo dibujado y no a uno implícito.
+     *
+     * <p>Se omiten las aristas de una clase hacia sí misma, se deduplican las
+     * dependencias repetidas (p. ej. el mismo tipo aparecido como import y
+     * como uso) y, ante colisión de nombres simples entre archivos, se conserva
+     * la primera aparición.</p>
+     */
+    public static DiagramSpec from(StructuralChange change) {
+        var nodes = new ArrayList<Node>();
+        var changedNames = new LinkedHashMap<String, String>();
+        for (var file : change.files()) {
+            for (var classChange : file.classes()) {
+                var simple = simpleName(classChange.name());
+                if (changedNames.putIfAbsent(simple, classChange.name()) == null) {
+                    nodes.add(new Node(classChange.name(), classChange.kind(),
+                            classChange.addedMembers()));
+                }
+            }
+        }
+        var edges = new LinkedHashSet<Edge>();
+        for (var file : change.files()) {
+            for (var classChange : file.classes()) {
+                for (var dependency : classChange.addedDependencies()) {
+                    var target = changedNames.getOrDefault(simpleName(dependency),
+                            simpleName(dependency));
+                    if (!target.equals(classChange.name())) {
+                        edges.add(new Edge(classChange.name(), target));
+                    }
+                }
+            }
+        }
+        return new DiagramSpec(change.delta().previous(), change.delta().current(),
+                nodes, List.copyOf(edges));
+    }
+
+    private static String simpleName(String qualified) {
+        return qualified.substring(qualified.lastIndexOf('.') + 1);
     }
 
     private static void requireNotBlank(String value, String message) {

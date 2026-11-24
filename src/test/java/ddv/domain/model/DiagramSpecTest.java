@@ -104,4 +104,69 @@ class DiagramSpecTest {
         assertThat(spec.nodes()).isEmpty();
         assertThat(spec.edges()).isEmpty();
     }
+
+    private static StructuralChange.ClassChange classChange(String name, ChangeKind kind,
+            List<MemberStructure> members, List<String> dependencies) {
+        return new StructuralChange.ClassChange(name, kind, members, List.of(), dependencies,
+                List.of());
+    }
+
+    private static StructuralChange changeOf(StructuralChange.ClassChange... classes) {
+        var delta = new CommitDelta(C1, C2, List.of(
+                new CommitDelta.FileChange("src/A.java", CommitDelta.ChangeType.MODIFIED)));
+        return new StructuralChange(delta, List.of(
+                new StructuralChange.FileStructureChange("src/A.java", List.of(classes))));
+    }
+
+    @Test
+    @DisplayName("from maps every class change to a node with its state and members")
+    void fromMapsClassChangesToNodes() {
+        var spec = DiagramSpec.from(changeOf(
+                classChange("A", ChangeKind.MODIFIED, List.of(method("newOne")), List.of()),
+                classChange("B", ChangeKind.ADDED, List.of(), List.of())));
+
+        assertThat(spec.nodes()).extracting(DiagramSpec.Node::name)
+                .containsExactly("A", "B");
+        assertThat(spec.nodes()).extracting(DiagramSpec.Node::state)
+                .containsExactly(ChangeKind.MODIFIED, ChangeKind.ADDED);
+        assertThat(spec.nodes().get(0).addedMembers())
+                .extracting(MemberStructure::name)
+                .containsExactly("newOne");
+        assertThat(spec.previous()).isEqualTo(C1);
+        assertThat(spec.current()).isEqualTo(C2);
+    }
+
+    @Test
+    @DisplayName("Dependencies become simple-named edges, deduplicated and without self loops")
+    void dependenciesBecomeDeduplicatedEdges() {
+        var spec = DiagramSpec.from(changeOf(
+                classChange("A", ChangeKind.MODIFIED, List.of(),
+                        List.of("java.util.List", "List", "A"))));
+
+        assertThat(spec.edges()).containsExactly(new DiagramSpec.Edge("A", "List"));
+    }
+
+    @Test
+    @DisplayName("An edge to a changed nested class points at its qualified node name")
+    void edgeToChangedNestedClassUsesQualifiedName() {
+        var delta = new CommitDelta(C1, C2, List.of());
+        var change = new StructuralChange(delta, List.of(
+                new StructuralChange.FileStructureChange("src/O.java", List.of(
+                        classChange("Outer", ChangeKind.MODIFIED, List.of(), List.of("Inner")),
+                        classChange("Outer.Inner", ChangeKind.ADDED, List.of(), List.of())))));
+
+        var spec = DiagramSpec.from(change);
+
+        assertThat(spec.edges()).containsExactly(new DiagramSpec.Edge("Outer", "Outer.Inner"));
+    }
+
+    @Test
+    @DisplayName("A change without structure yields an empty spec ready for the placeholder")
+    void changeWithoutStructureYieldsEmptySpec() {
+        var delta = new CommitDelta(C1, C2, List.of());
+        var spec = DiagramSpec.from(new StructuralChange(delta, List.of()));
+
+        assertThat(spec.nodes()).isEmpty();
+        assertThat(spec.edges()).isEmpty();
+    }
 }

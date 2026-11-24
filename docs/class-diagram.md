@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados. **UC4 U4T1–U4T2:** `DiagramSpec` (+ `DiagramException`), `RendererPort` + `MermaidRenderer`.
+> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados. **UC4 U4T1–U4T3:** `DiagramSpec` (+ `DiagramException`), `RendererPort` + `MermaidRenderer`, `DiagramSequence` + `DiagramGenerator`.
 
 ---
 
@@ -144,6 +144,14 @@ classDiagram
         +Commit current
         +List~Node~ nodes
         +List~Edge~ edges
+        +from(StructuralChange change)$ DiagramSpec
+    }
+
+    class DiagramSequence {
+        <<record>>
+        +StructuralSequence source
+        +List~DiagramSpec~ diagrams
+        +size() int
     }
 
     class Node {
@@ -354,6 +362,11 @@ classDiagram
         -structureAt(RepositoryHandle handle, Commit commit, String path) CodeStructure
     }
 
+    class DiagramGenerator {
+        <<use case: pipeline (UC4)>>
+        +generate(StructuralSequence sequence) DiagramSequence
+    }
+
     class AnalyzeCommand {
         <<adapter: in/cli>>
         +AnalyzeCommand(ScopeResolver scopeResolver)
@@ -416,6 +429,17 @@ classDiagram
     Node "1" *-- "0..*" MemberStructure : addedMembers
     Node "1" --> "1" ChangeKind : state (reutiliza el enum de Sᵢ)
     DiagramException "1" *-- "1" DiagramCode : code
+    DiagramSpec ..> StructuralChange : from(Sᵢ)
+
+    %% Secuencia de diagramas — salida del UC4, entrada de UC5 (U4T3)
+    DiagramSequence "1" *-- "1" StructuralSequence : source (trazabilidad)
+    DiagramSequence "1" *-- "0..*" DiagramSpec : diagrams (uno por Sᵢ)
+    DiagramSequence ..> DiagramException : throws (alineación)
+
+    %% Caso de uso UC4 (U4T3)
+    DiagramGenerator ..> StructuralSequence : entrada (contrato de UC3)
+    DiagramGenerator ..> DiagramSpec : from(Sᵢ)
+    DiagramGenerator ..> DiagramSequence : salida
 
     %% El puerto depende solo de tipos de dominio
     GitSourcePort ..> RepoScope : open(), resolveRange()
@@ -519,7 +543,8 @@ classDiagram
 - **`DiffExtractor` (U2T5)** es el caso de uso UC2: `open → diff(par) → close` sobre `consecutivePairs()`, ensamblando `DeltaSequence` (el invariante de alineación del record detecta un puerto que devuelva Δs fuera de orden). `relevantChanges()` entrega a UC3 la lista plana de archivos analizables, en orden de aparición.
 - **`Code`** está anidado en `ScopeException`; `DiffException`, `ParseException` y `DiagramException` tienen el suyo propio (representados como `DiffCode`, `ParseCode` y `DiagramCode` para no colisionar en el diagrama).
 - **`DiagramSpec` (U4T1)** es la representación *neutra de lenguaje* del diagrama de un commit: etiqueta (`previous`/`current`), nodos de clase con su `ChangeKind` (reutiliza el enum de Sᵢ) y miembros añadidos, y aristas de dependencia nueva — **solo cambios significativos** (decisión 5 de UC4). Un spec vacío = commit sin cambios, que el render convertirá en placeholder (decisión 4). Sus validaciones usan `DiagramException` (decisión de implementación: una excepción tipada por UC, complementa `WRITE_ERROR` para U4T4).
-- **`MermaidRenderer` (U4T2)** emite el **documento Markdown completo** (título con commit + bloque ` ```mermaid `) o el placeholder. Sintaxis verificada contra la documentación de Mermaid: anotación de estado **dentro de las llaves** (`<<added>>`), miembros **sin visibilidad** (opcional en Mermaid y no modelada), `..>` para dependencias. Sanitiza nombres (`Outer.Inner` → `Outer_Inner`, solo alfanuméricos/`_`/`-`) y tipos (`List<String>` → `List~String~`, comas fuera). Sin `switch` con `default`: los enums `ChangeKind`/`MemberKind` se cubren exhaustivamente.
+- **`MermaidRenderer` (U4T2)** emite el **documento Markdown completo** (título con commit + bloque ` ```mermaid `) o el placeholder. Sintaxis verificada contra la documentación de Mermaid: anotación de estado **dentro de las llaves** (`<<added>>`), miembros **sin visibilidad** (opcional en Mermaid y no modelada), `..>` para dependencias. Sanitiza nombres (`Outer.Inner` → `Outer_Inner`, solo alfanuméricos/`_`/`-`) y tipos (`List<String>` → `List~String~`, comas fuera). Sin `switch` con `default`: los enums `ChangeKind`/`MemberKind` se cubren exhaustivamente. **Validado renderizando la salida real con Mermaid 11** (pilló un `classDiagram` duplicado, ya corregido y cubierto con `containsOnlyOnce`).
+- **`DiagramSpec.from(StructuralChange)` (U4T3)** es la lógica pura del mapeo (precedente: `FileStructureChange.between`): clases → nodos, dependencias nuevas → aristas con **nombre simple** — si el destino también cambió se usa su nombre calificado para no crear nodos implícitos —, omitiendo auto-aristas, deduplicando (import + uso del mismo tipo) y conservando la primera aparición ante colisión de nombres simples (limitación: los nombres no llevan paquete). **`DiagramGenerator`** es la etapa del pipeline que aplica `from` a cada $S_i$; **`DiagramSequence`** valida un diagrama por $S_i$ con sus commits (excepción `DiagramException(INVALID_INPUT)`, a diferencia de las secuencias de UC2/UC3 que usan `DiffException`).
 - **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
 ### Matriz de validaciones (T7)
@@ -559,5 +584,5 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC4 (U4T3–U4T4) | `DiagramGenerator`, `StorePort` + `FileStoreAdapter` |
+| UC4 (U4T4) | `StorePort` + `FileStoreAdapter` (exportación) |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |
