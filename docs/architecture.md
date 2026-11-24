@@ -66,7 +66,7 @@ ddv/
 ├── application/             # Casos de uso + pipeline (solo depende de domain y ports)
 │   ├── scope/               #   ScopeResolver (UC1)
 │   ├── pipeline/            #   DiffExtractor → StructuralAnalyzer → DiagramGenerator
-│   └── evolution/           #   EvolutionComparer (UC5)
+│   └── evolution/           #   EvolutionComparer + EvolutionReporter (UC5)
 ├── ports/                   # Interfaces (contrato hexagonal)
 │   ├── GitSourcePort.java
 │   ├── ParserPort.java
@@ -103,7 +103,7 @@ Prohibido: `domain` importando de `application`, `ports` o `adapters`; `applicat
 | `GitSourcePort` | `JGitAdapter` | Abrir/clone del repo, resolver rango $C_1..C_n$, extraer diff entre $C_{i-1}, C_i$ |
 | `ParserPort` | `AstParserAdapter` (JavaParser) | `parse(código) → CodeStructure` (clases, miembros, referencias de tipo); la resta viejo vs nuevo la hace `StructuralAnalyzer` → `StructuralChange` |
 | `RendererPort` | `MermaidRenderer` | `render(DiagramSpec) → String` — el `DiagramGenerator` modela y el adaptador solo emite (futuro: `PlantUMLAdapter` reutiliza el spec) |
-| `StorePort` | `FileStoreAdapter` | Exportar diagramas en UC4 (`saveDiagram` → `<commitId>.md`); UC5 amplía con la carga y persistencia de $S_1..S_n$ |
+| `StorePort` | `FileStoreAdapter` | Exportar diagramas (`saveDiagram` → `<commitId>.md`) y **persistir/cargar los estados** ($S_1..S_n$ en `states.json`, JSON con Gson) — implementado en UC4–UC5 |
 
 ```java
 public interface GitSourcePort {
@@ -128,13 +128,14 @@ flowchart LR
     A -->|"StructuralSequence"| G["DiagramGenerator"]
     G -->|"DiagramSequence"| X["DiagramExporter<br/>(RendererPort + StorePort)"]
     X -->|"Markdown"| F[".md por commit"]
-    X -.->|"saveDiagram()"| ST["StorePort<br/>(diagramas + S₁..Sₙ)"]
+    X -.->|"saveDiagram() + saveStates()"| ST["StorePort<br/>(diagramas + S₁..Sₙ)"]
     ST --> L
-    L -->|"fin del rango"| R["UC5: EvolutionComparer<br/>(lee StorePort)"]
+    L -->|"fin del rango"| R["UC5: EvolutionComparer + Reporter<br/>(lee StorePort)"]
 ```
 
 - **Implementado (UC2):** `SourceFileFilter` y `DiffExtractor` (U2T4–U2T5) con `JGitAdapter.diff()` (U2T3). La salida hacia UC3 es `DeltaSequence` —una Δ por par, alineada con `consecutivePairs()`— más `relevantChanges()` (solo ficheros `.java`); ambos contratos están bloqueados por `DeltaSequenceContractTest`.
-- **Implementado (UC3):** `StructuralAnalyzer` (U3T5) consume esa salida con `content()` + `ParserPort` y produce `StructuralSequence` —un $S_i$ por Δ, alineado con su procedencia—; la resta pura vive en `FileStructureChange.between(before, after)`. Falta UC4 para dibujar.
+- **Implementado (UC3):** `StructuralAnalyzer` (U3T5) consume esa salida con `content()` + `ParserPort` y produce `StructuralSequence` —un $S_i$ por Δ, alineado con su procedencia—; la resta pura vive en `FileStructureChange.between(before, after)`.
+- **Implementado (UC5):** `EvolutionComparer` lee los $S_1..S_n$ del `StorePort` (`states.json`, escrito por el `DiagramExporter`), recoge los puntos de una clase y `EvolutionReporter` emite resumen + diagrama de trayectoria; la CLI lo expone con `ddv analyze --track <clase>`.
 - Cada etapa es una clase con **un solo método** y depende solo de puertos → testeable con mocks (Mockito) sin Git ni disco.
 - El `StorePort` materializa la "acumulación de datos" que UC5 requiere (su `«include»` sobre UC4).
 - **Contrato de entrada del bucle (T9):** `AnalysisScope` es estable — orden ascendente, inmutabilidad y `consecutivePairs()` en el mismo orden; bloqueado por `AnalysisScopeTest` y `GitSourcePortContractTest` (cabecera del bucle contra un puerto falso).
@@ -162,4 +163,4 @@ flowchart LR
 | UC2 Detección de Δ | `application/pipeline/DiffExtractor` |
 | UC3 Análisis estructural | `application/pipeline/StructuralAnalyzer` + `AstParserAdapter` |
 | UC4 Diagrama UML por commit | `application/pipeline/DiagramGenerator` + `MermaidRenderer` |
-| UC5 Comparar evolución global | `application/evolution/EvolutionComparer` + `FileStoreAdapter` |
+| UC5 Comparar evolución global | `application/evolution/EvolutionComparer` + `EvolutionReporter` + `FileStoreAdapter` |

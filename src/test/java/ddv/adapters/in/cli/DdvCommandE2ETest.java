@@ -13,8 +13,9 @@ import java.time.Instant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * End-to-end: CLI real + ensamblaje real (JGitAdapter + ScopeResolver) contra
- * repositorios Git temporales. Cubre el camino completo de UC1.
+ * End-to-end: CLI real + ensamblaje real (JGit, JavaParser, Mermaid, Gson y
+ * filesystem) contra repositorios Git temporales. Cubre el pipeline completo
+ * que ahora ejecuta {@code ddv analyze} (UC1 → UC4).
  */
 class DdvCommandE2ETest {
 
@@ -42,7 +43,8 @@ class DdvCommandE2ETest {
         assertThat(out.toString())
                 .contains("Repositorio: " + repo)
                 .contains("Rango: últimos 2")
-                .contains("Commits: 2");
+                .contains("Commits: 2")
+                .contains("Diagramas exportados: 1");
         assertThat(err.toString()).isEmpty();
     }
 
@@ -58,7 +60,9 @@ class DdvCommandE2ETest {
                 "--range", c1 + ".." + c3);
 
         assertThat(exit).isZero();
-        assertThat(out.toString()).contains("Rango: " + c1 + ".." + c3).contains("Commits: 3");
+        assertThat(out.toString()).contains("Rango: " + c1 + ".." + c3)
+                .contains("Commits: 3")
+                .contains("Diagramas exportados: 2");
         assertThat(err.toString()).isEmpty();
     }
 
@@ -82,6 +86,7 @@ class DdvCommandE2ETest {
     }
 
     private int execute(String... args) {
-        return DdvCommand.execute(args, new PrintWriter(out, true), new PrintWriter(err, true));
+        return DdvCommand.execute(args, new PrintWriter(out, true), new PrintWriter(err, true),
+                tempDir.resolve("ddv-out"));
     }
 }

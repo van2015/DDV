@@ -82,6 +82,7 @@ class DiagramExporterTest {
         order.verify(storePort).saveDiagram(eq("c2"), eq("doc-c2"));
         order.verify(rendererPort).render(any());
         order.verify(storePort).saveDiagram(eq("c3"), eq("doc-c3"));
+        verify(storePort).saveStates(any());
     }
 
     @Test
@@ -109,5 +110,6 @@ class DiagramExporterTest {
         assertThat(paths).isEmpty();
         verify(rendererPort, never()).render(any());
         verify(storePort, never()).saveDiagram(anyString(), anyString());
+        verify(storePort).saveStates(List.of());
     }
 }

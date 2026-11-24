@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC5: Comparar Evolución Estructural Global
 
-**Estado:** por iniciar (0/7) — decisiones tomadas (ver abajo)
+**Estado:** U5T1–U5T7 completadas — **UC5 completa**
 **Stack:** Java 25+, Maven, JGit, JavaParser, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesoras:** UC1, UC2, UC3 y UC4 completas · numeración `U5Tn`
@@ -43,10 +43,10 @@ Dependencia acumulativa: el resultado es una **síntesis del proceso completo**
 | `DiagramSequence` con procedencia completa (`source` → `StructuralSequence` → `DeltaSequence` → `AnalysisScope`) | UC4 U4T3 | ✅ contrato validado |
 | **Lo que UC5 consume** | UC4 U4T5 | ✅ fijado por `DiagramSequenceContractTest`: línea temporal por commit, **trayectoria de clase** (estado + miembros por commit), punto *placeholder* para commits sin cambios y procedencia hasta el rango original |
 | `StructuralChange` / `ClassChange` (estados, miembros y dependencias añadidos) | UC3 U3T1/U3T5 | ✅ con trazabilidad al Δ |
-| `StorePort.saveDiagram` + `FileStoreAdapter` (escritura) | UC4 U4T4 | ✅ — **faltan cargas y estados** (decisión 1/2) |
-| `application/evolution` (paquete) | rename de UC5 | ✅ solo `package-info` |
-| `MermaidRenderer` | UC4 U4T2 | ✅ reutilizable para la trayectoria |
-| `EvolutionComparer` anunciado en `architecture.md` §5/§7 y `class-diagram.md` | docs | ⏳ sin implementar |
+| `StorePort.saveDiagram` + `FileStoreAdapter` (escritura) | UC4 U4T4 | ✅ — cargas y estados añadidos en U5T2 |
+| `application/evolution` (paquete) | rename de UC5 | ✅ `EvolutionComparer` + `EvolutionReporter` implementados |
+| `MermaidRenderer` | UC4 U4T2 | ✅ reutilizable para la trayectoria (`renderTrajectory`) |
+| `EvolutionComparer` anunciado en `architecture.md` §5/§7 y `class-diagram.md` | docs | ✅ implementado en U5T3 |
 
 ---
 
@@ -54,13 +54,13 @@ Dependencia acumulativa: el resultado es una **síntesis del proceso completo**
 
 | # | Tarea | Paquete hexagonal | Descripción | Entregable |
 | :--- | :--- | :--- | :--- | :--- |
-| **U5T1** | Modelo de trayectoria | `domain/model` | Inmutable y validado: nombre de clase objetivo + puntos temporales (commit, estado, miembros y dependencias añadidos, indicador de *sin cambios*) | `ClassTrajectory` (y anidados) + tests de contrato |
-| **U5T2** | Persistencia de estados y cargas | `ports`, `adapters/out/file` | Ampliar `StorePort` con `saveStates`/`loadStates` (+ carga de diagramas si la decisión 4/1 lo pide) y su formato | **JSON con Gson** (decisión 1) escrito por el `DiagramExporter` (decisión 2); puerto + adaptador + tests *round-trip* con `@TempDir` |
-| **U5T3** | Comparador de evolución | `application/evolution` | De los estados cargados, **seleccionar la clase** y recopilar sus modificaciones a lo largo del rango (incluyendo los puntos *sin cambios*) | `EvolutionComparer` + tests con secuencias construidas |
-| **U5T4** | Salida de UC5 | `application/evolution`, `adapters/out/mermaid` | Resumen textual **y** diagrama de trayectoria en Mermaid (decisión 3), reutilizando `MermaidRenderer`/`RendererPort` | salida + tests |
-| **U5T5** | Cableado de CLI | `adapters/in/cli` | `ddv analyze` pasa a ejecutar el pipeline completo (UC1→UC4) y acepta `--track <clase>` opcional que añade UC5 (decisión 4) | flag + comportamiento + tests |
-| **U5T6** | E2E UC1 → UC5 | `src/test` | Cadena completa real: pipeline → persistir → **recargar desde disco** → trayectoria → salida | E2E sin mocks con `@TempDir` |
-| **U5T7** | QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo + `class-diagram.md` + `architecture.md` |
+| **U5T1** | ✅ Modelo de trayectoria | `domain/model` | Inmutable y validado: nombre de clase objetivo + puntos temporales (commit, estado, miembros y dependencias añadidos, indicador de *sin cambios*) | `ClassTrajectory` (con `Point` que reutiliza `ClassChange`) + `EvolutionException` + 7 tests ✅ |
+| **U5T2** | ✅ Persistencia de estados y cargas | `ports`, `adapters/out/file` | Ampliar `StorePort` con `saveStates`/`loadStates` y su formato | **JSON con Gson** (adaptador `Instant` en ISO-8601) escrito por el `DiagramExporter` junto a los `.md`; puerto + adaptador + 6 tests *round-trip* con `@TempDir` ✅ |
+| **U5T3** | ✅ Comparador de evolución | `application/evolution` | De los estados cargados, **seleccionar la clase** y recopilar sus modificaciones a lo largo del rango | `EvolutionComparer` (valida el nombre antes de leer disco, `CLASS_NOT_FOUND` si no aparece) + 4 tests ✅ |
+| **U5T4** | ✅ Salida de UC5 | `application/evolution`, `adapters/out/mermaid` | Resumen textual **y** diagrama de trayectoria en Mermaid (decisión 3) | `EvolutionReporter` (resumen) + `RendererPort.renderTrajectory` + `MermaidRenderer` (`flowchart LR` de estados, validado con Mermaid 11) + 3 tests ✅ |
+| **U5T5** | ✅ Cableado de CLI | `adapters/in/cli` | `ddv analyze` ejecuta el pipeline completo (UC1→UC4) y acepta `--track <clase>` (decisión 4) | `AnalysisRunner` (orquesta UC2→UC4), `--track` en `AnalyzeCommand` con los 5 errores tipados → exit 1, cableado completo en `DdvCommand` (salida `ddv-out/`) + 3 tests nuevos ✅ |
+| **U5T6** | ✅ E2E UC1 → UC5 | `src/test` | Cadena completa real: pipeline → persistir → **recargar desde disco** → trayectoria → salida | `EvolutionE2ETest` (5 tests, sin mocks): `states.json` con 4 Sᵢ, trayectoria ADDED→MODIFIED→MODIFIED→REMOVED, resumen con miembros y dependencias, `flowchart`, `CLASS_NOT_FOUND` ✅ |
+| **U5T7** | ✅ QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo · `class-diagram.md` (UC5 completa) · `architecture.md` §4/§5/§7 · README (uso con `--track`) ✅ |
 
 ---
 
@@ -111,8 +111,8 @@ flowchart LR
   U5T7 solo publica las métricas.
 - **Regla 6:** toda tarea que añada, elimine o modifique tipos o relaciones
   actualiza `docs/class-diagram.md` en la misma modificación.
-- **`refactors.md` R3** (constantes `Instant` duplicadas en 7 clases) vuelve a
-  crecer con el E2E de U5T6: al tocar esos tests.
+- **`refactors.md` R3** (constantes `Instant` duplicadas en 8 clases tras el
+  E2E de U5T6) sigue diferido: al tocar esos tests.
 
 ## Fuera de alcance de UC5
 
@@ -125,4 +125,23 @@ flowchart LR
 
 ## Métricas de cobertura (JaCoCo)
 
-*(se rellena en U5T7 — gate activo: `PACKAGE ≥ 0.80` líneas en `mvn clean test`)*
+*(gate activo: `PACKAGE ≥ 0.80` líneas en toda fase `test` de `mvn clean test`)*
+
+| Paquete | Instrucciones | Líneas | Objetivo ≥80% |
+| :--- | :--- | :--- | :--- |
+| `ddv.application.evolution` | 100,0% | 100,0% | ✅ |
+| `ddv.application.pipeline` | 100,0% | 100,0% | ✅ |
+| `ddv.application.scope` | 100,0% | 100,0% | ✅ |
+| `ddv.domain.model` | 100,0% | 100,0% | ✅ |
+| `ddv.adapters.out.mermaid` | 100,0% | 100,0% | ✅ |
+| `ddv.domain.exception` | 96,3% | 95,0% | ✅ |
+| `ddv.adapters.out.file` | 97,7% | 97,6% | ✅ |
+| `ddv.adapters.out.jgit` | 93,2% | 93,8% | ✅ |
+| `ddv.adapters.out.ast` | 93,2% | 90,8% | ✅ |
+| `ddv.adapters.in.cli` | 89,9% | 87,9% | ✅ |
+| **Total** | **96,9%** | **96,7% (808/836 líneas)** | ✅ |
+
+**216 tests, 0 fallos, 0 errores** (2026-11-24). Reporte HTML/CSV en `target/site/jacoco/`.
+Las líneas sin cubrir son ramas de error poco reproducibles (fallo al crear el
+workspace del clon, `IOException` en la limpieza, caso `COPY` del diff) y
+constructores/validaciones defensivas.

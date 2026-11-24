@@ -143,6 +143,15 @@ public record StructuralChange(CommitDelta delta, List<FileStructureChange> file
     public enum ChangeKind {
         ADDED,
         MODIFIED,
-        REMOVED
+        REMOVED;
+
+        /** Etiqueta en español para las salidas dirigidas al analista (UC4/UC5). */
+        public String label() {
+            return switch (this) {
+                case ADDED -> "añadida";
+                case MODIFIED -> "modificada";
+                case REMOVED -> "eliminada";
+            };
+        }
     }
 }

@@ -1,10 +1,18 @@
 package ddv.adapters.in.cli;
 
+import ddv.application.evolution.EvolutionComparer;
+import ddv.application.evolution.EvolutionReporter;
+import ddv.application.pipeline.AnalysisRunner;
 import ddv.application.scope.ScopeResolver;
+import ddv.domain.exception.DiffException;
+import ddv.domain.exception.EvolutionException;
 import ddv.domain.exception.ScopeException;
 import ddv.domain.model.AnalysisScope;
+import ddv.domain.model.ClassTrajectory;
 import ddv.domain.model.Commit;
 import ddv.domain.model.RepoScope;
+import ddv.domain.model.StructuralChange;
+import ddv.domain.model.StructuralChange.ChangeKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
@@ -23,9 +31,13 @@ import static org.mockito.Mockito.when;
 class AnalyzeCommandTest {
 
     private final ScopeResolver resolver = mock(ScopeResolver.class);
+    private final AnalysisRunner runner = mock(AnalysisRunner.class);
+    private final EvolutionComparer comparer = mock(EvolutionComparer.class);
+    private final EvolutionReporter reporter = mock(EvolutionReporter.class);
     private final StringWriter out = new StringWriter();
     private final StringWriter err = new StringWriter();
-    private final CommandLine commandLine = new CommandLine(new AnalyzeCommand(resolver))
+    private final CommandLine commandLine = new CommandLine(
+            new AnalyzeCommand(resolver, runner, comparer, reporter))
             .setOut(new PrintWriter(out, true))
             .setErr(new PrintWriter(err, true));
 
@@ -34,6 +46,7 @@ class AnalyzeCommandTest {
     void resolvesLastNAndPrintsSummary() {
         var scope = RepoScope.lastN("/repo", 2);
         when(resolver.resolve(scope)).thenReturn(resolved(scope, "aaaa1111", "bbbb2222"));
+        when(runner.run(any())).thenReturn(List.of());
 
         var exit = commandLine.execute("--repo", "/repo", "--last", "2");
 
@@ -41,7 +54,8 @@ class AnalyzeCommandTest {
         assertThat(out.toString())
                 .contains("Repositorio: /repo")
                 .contains("Rango: últimos 2")
-                .contains("Commits: 2 (aaaa1111..bbbb2222)");
+                .contains("Commits: 2 (aaaa1111..bbbb2222)")
+                .contains("Diagramas exportados: 0");
         assertThat(err.toString()).isEmpty();
     }
 
@@ -50,6 +64,7 @@ class AnalyzeCommandTest {
     void resolvesBetweenRange() {
         var scope = RepoScope.between("/repo", "aaaa1111", "bbbb2222");
         when(resolver.resolve(scope)).thenReturn(resolved(scope, "aaaa1111", "bbbb2222"));
+        when(runner.run(any())).thenReturn(List.of());
 
         var exit = commandLine.execute("--repo", "/repo", "--range", "aaaa1111..bbbb2222");
 
@@ -116,6 +131,64 @@ class AnalyzeCommandTest {
         assertThat(exit).isEqualTo(1);
         assertThat(err.toString()).contains("Error [INVALID_ARGUMENT]");
         verify(resolver, never()).resolve(any());
+    }
+
+    @Test
+    @DisplayName("A trackable class prints its summary and trajectory diagram")
+    void trackPrintsSummaryAndDiagram() {
+        when(resolver.resolve(any())).thenReturn(
+                resolved(RepoScope.lastN("/repo", 2), "aaaa1111", "bbbb2222"));
+        when(runner.run(any())).thenReturn(List.of());
+        when(comparer.compare("A")).thenReturn(trajectory());
+        when(reporter.summary(any())).thenReturn("resumen de A");
+        when(reporter.diagram(any())).thenReturn("```mermaid");
+
+        var exit = commandLine.execute("--repo", "/repo", "--last", "2", "--track", "A");
+
+        assertThat(exit).isZero();
+        assertThat(out.toString())
+                .contains("Diagramas exportados: 0")
+                .contains("resumen de A")
+                .contains("```mermaid");
+        verify(comparer).compare("A");
+    }
+
+    @Test
+    @DisplayName("A class absent from the range is reported with exit code 1")
+    void trackClassNotFoundReturnsExitCodeOne() {
+        when(resolver.resolve(any())).thenReturn(
+                resolved(RepoScope.lastN("/repo", 2), "aaaa1111", "bbbb2222"));
+        when(runner.run(any())).thenReturn(List.of());
+        when(comparer.compare("Desconocida")).thenThrow(
+                new EvolutionException(EvolutionException.Code.CLASS_NOT_FOUND,
+                        "La clase Desconocida no aparece en ningún commit del rango"));
+
+        var exit = commandLine.execute("--repo", "/repo", "--last", "2",
+                "--track", "Desconocida");
+
+        assertThat(exit).isEqualTo(1);
+        assertThat(err.toString()).contains("Error [CLASS_NOT_FOUND]");
+    }
+
+    @Test
+    @DisplayName("Pipeline failures are reported with exit code 1")
+    void pipelineFailureReturnsExitCodeOne() {
+        when(resolver.resolve(any())).thenReturn(
+                resolved(RepoScope.lastN("/repo", 2), "aaaa1111", "bbbb2222"));
+        when(runner.run(any())).thenThrow(
+                new DiffException(DiffException.Code.IO_ERROR, "no se pudo leer"));
+
+        var exit = commandLine.execute("--repo", "/repo", "--last", "2");
+
+        assertThat(exit).isEqualTo(1);
+        assertThat(err.toString()).contains("Error [IO_ERROR]");
+    }
+
+    private static ClassTrajectory trajectory() {
+        var change = new StructuralChange.ClassChange("A", ChangeKind.ADDED,
+                List.of(), List.of(), List.of(), List.of());
+        return new ClassTrajectory("A",
+                List.of(new ClassTrajectory.Point(Commit.of("c2c2c2c2c2c2"), change)));
     }
 
     private static AnalysisScope resolved(RepoScope scope, String firstId, String lastId) {

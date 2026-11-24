@@ -33,13 +33,21 @@ mvn clean test
 
 `mvn clean test` genera el informe de cobertura en `target/site/jacoco/index.html` y **falla si algún paquete baja del 80% de líneas** (gate JaCoCo de `pom.xml`, regla `PACKAGE ≥ 0.80`).
 
-## Uso (UC1)
+## Uso (UC1–UC5)
 
 ```bash
 mvn -q dependency:build-classpath -Dmdep.outputFile=target/cp.txt
 java -cp "target/classes:$(cat target/cp.txt)" ddv.adapters.in.cli.DdvCommand \
-    analyze --repo <ruta|URL> --last 10          # últimos N commits
-# ... analyze --repo <ruta|URL> --range A..B     # rango inclusivo (A ancestro de B)
+    analyze --repo <ruta|URL> --last 10               # pipeline completo
+# ... analyze --repo <ruta|URL> --range A..B          # rango inclusivo (A ancestro de B)
+# ... analyze --repo ... --last 10 --track <clase>    # añade la evolución de la clase (UC5)
 ```
 
-Códigos de salida: `0` ok · `1` error de alcance (`ScopeException`) · `2` error de uso de la CLI.
+`analyze` ejecuta todo el pipeline — alcance (UC1) → Δ (UC2) → estructura (UC3) →
+diagramas (UC4)— y exporta un `.md` por commit en **`ddv-out/`** junto a
+`states.json`; con `--track <clase>` añade el resumen y el diagrama de
+trayectoria de esa clase (UC5).
+
+Códigos de salida: `0` ok · `1` error tipado de cualquier caso de uso
+(`ScopeException`, `DiffException`, `ParseException`, `DiagramException`,
+`EvolutionException`) · `2` error de uso de la CLI.

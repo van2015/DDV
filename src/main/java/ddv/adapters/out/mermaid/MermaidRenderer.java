@@ -1,5 +1,6 @@
 package ddv.adapters.out.mermaid;
 
+import ddv.domain.model.ClassTrajectory;
 import ddv.domain.model.CodeStructure.MemberStructure;
 import ddv.domain.model.DiagramSpec;
 import ddv.domain.model.StructuralChange.ChangeKind;
@@ -26,6 +27,35 @@ public class MermaidRenderer implements RendererPort {
             return title + "\n\n" + PLACEHOLDER + "\n";
         }
         return title + "\n\n```mermaid\n" + classDiagram(spec) + "```\n";
+    }
+
+    @Override
+    public String renderTrajectory(ClassTrajectory trajectory) {
+        var points = trajectory.points();
+        var diagram = new StringBuilder("```mermaid\nflowchart LR\n");
+        for (int i = 0; i < points.size(); i++) {
+            if (i > 0) {
+                diagram.append(" -->\n");
+            }
+            diagram.append("    ").append(node(points.get(i)));
+        }
+        return "# Trayectoria de " + trajectory.className() + "\n\n"
+                + diagram + "\n```\n";
+    }
+
+    private static String node(ClassTrajectory.Point point) {
+        var id = sanitize(point.commit().shortId());
+        var label = new StringBuilder(id).append(" · ")
+                .append(point.change().kind().label());
+        point.change().addedMembers()
+                .forEach(member -> label.append("<br/>+ ").append(member(member)));
+        point.change().removedMembers()
+                .forEach(member -> label.append("<br/>- ").append(member(member)));
+        point.change().addedDependencies()
+                .forEach(dependency -> label.append("<br/>+ ").append(sanitize(dependency)));
+        point.change().removedDependencies()
+                .forEach(dependency -> label.append("<br/>- ").append(sanitize(dependency)));
+        return id + "[\"" + label + "\"]";
     }
 
     private static String title(DiagramSpec spec) {

@@ -108,7 +108,7 @@ classDiagram
 | # | Refactorización | Dónde | Gatillo |
 | :--- | :--- | :--- | :--- |
 | **R1** | `SourceLocation` sellado (`LocalPath` \| `RemoteUrl`) en vez de `String location` + `isRemote()`, que recompila dos regex con `String.matches()` en cada `open()` | `RepoScope`, `JGitAdapter.open` | tocar `RepoScope` (p. ej. nuevas formas de remoto); hoy el *heuristic* vive en el dominio |
-| **R3** | Constantes y fakes de test: `Instant.T1..T6` duplicados en 7 clases (U4T6 añadió la séptima), dos `GitSourcePort` falsos idénticos, literal `"ddv-clone-"` en main y test | `src/test` | al tocar esos tests |
+| **R3** | Constantes y fakes de test: `Instant.T1..T6` duplicados en 8 clases (U5T6 añadió la octava), dos `GitSourcePort` falsos idénticos, literal `"ddv-clone-"` en main y test | `src/test` | al tocar esos tests |
 | **R4** | `AnalyzeCommand`: separador `".."` como constante (aparece 3 veces: split, render y mensaje); `AnalyzeCommandTest`: exit code de uso vía `CommandLine.ExitCode.USAGE` en vez del literal `2` | `adapters/in/cli` | al tocar la CLI |
 | **R5** | `HexagonalArchitectureTest` con ArchUnit (hoy escanea `.class` como strings ISO-8859-1: falso positivo si una constante contiene `picocli`, falso negativo en dependencias indirectas) + FQCN inline (`new java.util.ArrayList` en `AnalysisScope.consecutivePairs()`) | `architecture` test, `AnalysisScope` | al ampliar las reglas de arquitectura |
 

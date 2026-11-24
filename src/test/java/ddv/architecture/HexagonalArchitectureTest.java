@@ -31,6 +31,7 @@ class HexagonalArchitectureTest {
             "org/eclipse/jgit",
             "picocli",
             "com/github/javaparser",
+            "com/google/code/gson",
             "ddv/adapters");
 
     @Test

@@ -32,6 +32,8 @@ public class DiagramExporter {
             var document = rendererPort.render(diagram);
             paths.add(storePort.saveDiagram(diagram.current().shortId(), document));
         }
+        // al final: los estados solo se guardan si todos los diagramas salieron bien
+        storePort.saveStates(sequence.source().changes());
         return List.copyOf(paths);
     }
 }

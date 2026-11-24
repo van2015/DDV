@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8), **UC3 completa** (U3T1–U3T8) y **UC4 completa** (U4T1–U4T7: `DiagramSpec` + `DiagramException`, `RendererPort` + `MermaidRenderer`, `DiagramSequence` + `DiagramGenerator`, `StorePort` + `FileStoreAdapter` + `DiagramExporter`, contrato UC4 → UC5 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados.
+> **Última actualización:** 2026-11-24 — **UC2**, **UC3**, **UC4** y **UC5** completas (MVP de los 5 casos de uso). UC5 añade `ClassTrajectory`, `EvolutionException`, `EvolutionComparer`, `EvolutionReporter`, `AnalysisRunner`, `StorePort.saveStates/loadStates` (JSON con Gson), `RendererPort.renderTrajectory` y `--track` en la CLI. Revisión de calidad intermedia en UC2/UC3.
 
 ---
 
@@ -167,6 +167,18 @@ classDiagram
         +String target
     }
 
+    class ClassTrajectory {
+        <<record>>
+        +String className
+        +List~Point~ points
+    }
+
+    class Point {
+        <<nested: ClassTrajectory>>
+        +Commit commit
+        +ClassChange change
+    }
+
     class FileStructureChange {
         <<nested: StructuralChange>>
         +String path
@@ -188,6 +200,7 @@ classDiagram
         ADDED
         MODIFIED
         REMOVED
+        +label() String
     }
 
     class ScopeException {
@@ -248,6 +261,21 @@ classDiagram
         WRITE_ERROR
     }
 
+    class EvolutionException {
+        <<exception>>
+        -Code code
+        +EvolutionException(Code code, String message)
+        +code() Code
+    }
+
+    class EvolutionCode {
+        <<enumeration: EvolutionException.Code>>
+        INVALID_INPUT
+        CLASS_NOT_FOUND
+        WRITE_ERROR
+        READ_ERROR
+    }
+
     class GitSourcePort {
         <<interface>>
         +open(RepoScope scope) RepositoryHandle
@@ -269,11 +297,14 @@ classDiagram
     class RendererPort {
         <<interface>>
         +render(DiagramSpec spec) String
+        +renderTrajectory(ClassTrajectory trajectory) String
     }
 
     class StorePort {
         <<interface>>
         +saveDiagram(String commitId, String document) Path
+        +saveStates(List~StructuralChange~ states) void
+        +loadStates() List~StructuralChange~
     }
 
     class FileStoreAdapter {
@@ -281,6 +312,8 @@ classDiagram
         -Path root
         +FileStoreAdapter(Path root)
         +saveDiagram(String commitId, String document) Path
+        +saveStates(List~StructuralChange~ states) void
+        +loadStates() List~StructuralChange~
         -requireValidName(String commitId) void
     }
 
@@ -295,9 +328,11 @@ classDiagram
     class MermaidRenderer {
         <<adapter: out/mermaid>>
         +render(DiagramSpec spec) String
+        +renderTrajectory(ClassTrajectory trajectory) String
         -title(DiagramSpec spec) String
         -classDiagram(DiagramSpec spec) String
         -appendNode(StringBuilder diagram, Node node) void
+        -node(Point point) String
         -stereotype(ChangeKind state) String
         -member(MemberStructure member) String
         -sanitize(String text) String
@@ -388,10 +423,44 @@ classDiagram
         +generate(StructuralSequence sequence) DiagramSequence
     }
 
+    class AnalysisRunner {
+        <<use case: pipeline (UC5)>>
+        -DiffExtractor diffExtractor
+        -StructuralAnalyzer structuralAnalyzer
+        -DiagramGenerator diagramGenerator
+        -DiagramExporter diagramExporter
+        +run(AnalysisScope scope) List~Path~
+    }
+
+    class EvolutionComparer {
+        <<use case: evolution (UC5)>>
+        -StorePort storePort
+        +EvolutionComparer(StorePort storePort)
+        +compare(String className) ClassTrajectory
+        -requireName(String className) String
+        -pointsOf(String name) List~Point~
+    }
+
+    class EvolutionReporter {
+        <<use case: evolution (UC5)>>
+        -RendererPort rendererPort
+        +EvolutionReporter(RendererPort rendererPort)
+        +summary(ClassTrajectory trajectory) String
+        +diagram(ClassTrajectory trajectory) String
+    }
+
     class AnalyzeCommand {
         <<adapter: in/cli>>
-        +AnalyzeCommand(ScopeResolver scopeResolver)
+        -ScopeResolver scopeResolver
+        -AnalysisRunner analysisRunner
+        -EvolutionComparer evolutionComparer
+        -EvolutionReporter evolutionReporter
+        +String track
+        +AnalyzeCommand(ScopeResolver scopeResolver, AnalysisRunner analysisRunner, EvolutionComparer evolutionComparer, EvolutionReporter evolutionReporter)
         +call() Integer
+        -printScope(AnalysisScope resolved) void
+        -printEvolution(String className) void
+        -fail(Enum~?~ code, String message) int
         -toRepoScope() RepoScope
         -describe(Range range) String
     }
@@ -404,10 +473,13 @@ classDiagram
 
     class DdvCommand {
         <<entry point: in/cli>>
+        -Path DEFAULT_OUTPUT$
         +run() void
         +main(String[] args)$ void
         -execute(String[] args)$ int
         -execute(String[] args, PrintWriter out, PrintWriter err)$ int
+        -execute(String[] args, PrintWriter out, PrintWriter err, Path output)$ int
+        -analyzeCommand(Path output)$ AnalyzeCommand
     }
 
     %% Composición del dominio
@@ -492,9 +564,28 @@ classDiagram
     StorePort <|.. FileStoreAdapter : implements
     StorePort ..> Path : devuelve la ruta escrita
     DiagramExporter ..> RendererPort : renderiza cada diagrama
-    DiagramExporter ..> StorePort : escribe cada documento
+    DiagramExporter ..> StorePort : escribe cada documento + saveStates()
     DiagramExporter ..> DiagramSequence : entrada (contrato de U4T3)
     FileStoreAdapter ..> DiagramException : WRITE_ERROR / INVALID_INPUT
+
+    %% Caso de uso UC5 (U5T1–U5T5)
+    ClassTrajectory "1" *-- "1..*" Point : points (puntos temporales)
+    Point "1" *-- "1" Commit : commit
+    Point "1" *-- "1" ClassChange : change (reutiliza Sᵢ)
+    EvolutionException "1" *-- "1" EvolutionCode : code
+    EvolutionComparer ..> StorePort : lee los estados (loadStates)
+    EvolutionComparer ..> ClassTrajectory : salida
+    EvolutionReporter ..> RendererPort : renderTrajectory()
+    EvolutionReporter ..> ClassTrajectory : entrada
+    MermaidRenderer ..> ClassTrajectory : renderTrajectory()
+    AnalysisRunner ..> AnalysisScope : entrada (contrato de UC1)
+    AnalysisRunner ..> DiffExtractor : etapa UC2
+    AnalysisRunner ..> StructuralAnalyzer : etapa UC3
+    AnalysisRunner ..> DiagramGenerator : etapa UC4
+    AnalysisRunner ..> DiagramExporter : etapa UC4 (exporta)
+    AnalyzeCommand ..> AnalysisRunner : ejecuta el pipeline
+    AnalyzeCommand ..> EvolutionComparer : --track
+    AnalyzeCommand ..> EvolutionReporter : --track
 
     %% Caso de uso UC1 (T6)
     ScopeResolver ..> GitSourcePort : usa (inyección)
@@ -536,6 +627,9 @@ classDiagram
     CodeStructure ..> ParseException : throws (INVALID_INPUT)
     StructuralChange ..> ParseException : throws (INVALID_INPUT)
     DiagramSpec ..> DiagramException : throws (INVALID_INPUT)
+    ClassTrajectory ..> EvolutionException : throws (INVALID_INPUT)
+    EvolutionComparer ..> EvolutionException : throws (CLASS_NOT_FOUND / INVALID_INPUT)
+    FileStoreAdapter ..> EvolutionException : throws (WRITE_ERROR / READ_ERROR)
 ```
 
 ---
@@ -570,7 +664,12 @@ classDiagram
 - **`ParseException` (U3T3)** es la tercera excepción tipada: `SYNTAX_ERROR` (sintaxis) e `INVALID_INPUT` (textos en blanco, vía el validador estático `requireNotBlank`).
 - **`SourceFileFilter` (U2T4)** decide qué archivos del Δ parsea UC3, pero solo por **extensión** (`.java` para el MVP; configurable, p. ej. `.py`): la relevancia estructural real la determina UC3 sobre el AST. Es inyectable para que el lenguaje no esté cableado en el pipeline. El constructor **normaliza** las extensiones (minúsculas, para que la coincidencia `endsWith` sea insensible a mayúsculas en ambos lados) y **valida** que lleven punto (`INVALID_ARGUMENT` en caso contrario); las que solo difieren en mayúsculas se deduplican.
 - **`DiffExtractor` (U2T5)** es el caso de uso UC2: `open → diff(par) → close` sobre `consecutivePairs()`, ensamblando `DeltaSequence` (el invariante de alineación del record detecta un puerto que devuelva Δs fuera de orden). `relevantChanges()` entrega a UC3 la lista plana de archivos analizables, en orden de aparición.
-- **`Code`** está anidado en `ScopeException`; `DiffException`, `ParseException` y `DiagramException` tienen el suyo propio (representados como `DiffCode`, `ParseCode` y `DiagramCode` para no colisionar en el diagrama).
+- **`Code`** está anidado en `ScopeException`; `DiffException`, `ParseException`, `DiagramException` y `EvolutionException` tienen el suyo propio (representados como `DiffCode`, `ParseCode`, `DiagramCode` y `EvolutionCode` para no colisionar en el diagrama) — **una excepción tipada por caso de uso**.
+- **`ClassTrajectory` (U5T1)** modela la salida de UC5: nombre de la clase + un `Point` por cada commit en el que aparece un `ClassChange` con su nombre (**«punto temporal relevante»**: los commits donde la clase no cambia no son puntos). `Point` reutiliza `ClassChange` — sin duplicar estados, miembros ni dependencias. La trayectoria no puede estar vacía (`EvolutionException(INVALID_INPUT)`), porque el comparador ya lanza `CLASS_NOT_FOUND` antes.
+- **Persistencia de estados (U5T2):** `StorePort.saveStates/loadStates` con **JSON (Gson)** en `states.json` bajo la misma raíz que los `.md`; adaptador propio para `Instant` en ISO-8601 (Gson no lo trae). Lo escribe el `DiagramExporter` **después** de todos los diagramas, así que UC5 solo lee ejecuciones completas; la carga falla de forma ruidosa (`READ_ERROR`) en vez de devolver una lista vacía que produciría trayectorias engañosas. Gson está **prohibido en el núcleo** por `HexagonalArchitectureTest`.
+- **`EvolutionComparer` (U5T3)** es el caso de uso UC5: valida el nombre **antes** de leer disco (un nombre en blanco nunca coincide, así que sin esa validación saldría `CLASS_NOT_FOUND` en vez de `INVALID_INPUT`) y recorre los estados recogiendo los puntos de la clase.
+- **`EvolutionReporter` (U5T4)** produce el resumen textual y delega el diagrama en `RendererPort.renderTrajectory` (Mermaid `flowchart LR` de estados, **validado renderizando con Mermaid 11**). Las etiquetas en español (`añadida`/`modificada`/`eliminada`) viven en **`ChangeKind.label()`** — única fuente para el reporte y el diagrama, en dominio porque un adaptador no puede depender de `application`.
+- **`AnalysisRunner` (U5T5)** es el primer código que ejecuta el bucle UC2→UC3→UC4 completo (antes solo los tests E2E); `ddv analyze` lo invoca con `--track <clase>` opcional para UC5, y los **cinco** errores tipados salen por stderr con su código y exit 1. El directorio de salida es `ddv-out/` (fijo en la raíz de composición; sin flag `--out` en el MVP).
 - **`DiagramSpec` (U4T1)** es la representación *neutra de lenguaje* del diagrama de un commit: etiqueta (`previous`/`current`), nodos de clase con su `ChangeKind` (reutiliza el enum de Sᵢ) y miembros añadidos, y aristas de dependencia nueva — **solo cambios significativos** (decisión 5 de UC4). Un spec vacío = commit sin cambios, que el render convertirá en placeholder (decisión 4). Sus validaciones usan `DiagramException` (decisión de implementación: una excepción tipada por UC, complementa `WRITE_ERROR` para U4T4).
 - **`MermaidRenderer` (U4T2)** emite el **documento Markdown completo** (título con commit + bloque ` ```mermaid `) o el placeholder. Sintaxis verificada contra la documentación de Mermaid: anotación de estado **dentro de las llaves** (`<<added>>`), miembros **sin visibilidad** (opcional en Mermaid y no modelada), `..>` para dependencias. Sanitiza nombres (`Outer.Inner` → `Outer_Inner`, solo alfanuméricos/`_`/`-`) y tipos (`List<String>` → `List~String~`, comas fuera). Sin `switch` con `default`: los enums `ChangeKind`/`MemberKind` se cubren exhaustivamente. **Validado renderizando la salida real con Mermaid 11** (pilló un `classDiagram` duplicado, ya corregido y cubierto con `containsOnlyOnce`).
 - **`DiagramSpec.from(StructuralChange)` (U4T3)** es la lógica pura del mapeo (precedente: `FileStructureChange.between`): clases → nodos, dependencias nuevas → aristas con **nombre simple** — si el destino también cambió se usa su nombre calificado para no crear nodos implícitos —, omitiendo auto-aristas, deduplicando (import + uso del mismo tipo) y conservando la primera aparición ante colisión de nombres simples (limitación: los nombres no llevan paquete). **`DiagramGenerator`** es la etapa del pipeline que aplica `from` a cada $S_i$; **`DiagramSequence`** valida un diagrama por $S_i$ con sus commits (excepción `DiagramException(INVALID_INPUT)`, a diferencia de las secuencias de UC2/UC3 que usan `DiffException`) y su párrafo de *contrato estable* apunta a `DiagramSequenceContractTest` (U4T5), que alimenta a un **comparador de evolución falso** con la salida real del generador: línea temporal por commit, trayectoria de una clase a lo largo del rango, punto *placeholder* para los commits sin cambios (decisión 4) y procedencia hasta el `AnalysisScope` original.
@@ -610,8 +709,15 @@ classDiagram
 | `INVALID_INPUT` | `DiagramSpec.Node` / `DiagramSpec.Edge` / `FileStoreAdapter` | nombre de clase, origen o destino de la arista en blanco; commitId en blanco o con separadores de ruta |
 | `WRITE_ERROR` | `FileStoreAdapter` | no se pudo crear el directorio raíz o escribir el `.md` |
 
-## Pendiente de implementación (no representado aún)
+### Matriz de validaciones — `EvolutionException` (U5T1)
 
-| Tarea | Clases futuras |
-| :--- | :--- |
-| UC5 | `StorePort` (cargas y estados), `FileStoreAdapter` (cargas y estados), `EvolutionComparer`, modelo de trayectoria |
+| Código | Origen | Causa |
+| :--- | :--- | :--- |
+| `INVALID_INPUT` | `ClassTrajectory` / `EvolutionComparer` | nombre de clase en blanco o trayectoria sin puntos |
+| `CLASS_NOT_FOUND` | `EvolutionComparer` | la clase no aparece en ningún commit del rango |
+| `WRITE_ERROR` | `FileStoreAdapter.saveStates` | no se pudieron escribir los estados en disco |
+| `READ_ERROR` | `FileStoreAdapter.loadStates` | `states.json` ausente, vacío o corrupto |
+
+## Estado del MVP
+
+**UC1–UC5 completas** (2026-11-24): no queda ninguna clase anunciada sin implementar. El diagrama representa el código real de `src/main/java/ddv`.

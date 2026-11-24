@@ -1,9 +1,11 @@
 package ddv.adapters.out.mermaid;
 
+import ddv.domain.model.ClassTrajectory;
 import ddv.domain.model.CodeStructure.MemberKind;
 import ddv.domain.model.CodeStructure.MemberStructure;
 import ddv.domain.model.Commit;
 import ddv.domain.model.DiagramSpec;
+import ddv.domain.model.StructuralChange;
 import ddv.domain.model.StructuralChange.ChangeKind;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -100,5 +102,31 @@ class MermaidRendererTest {
                 .startsWith("# Diagrama estructural — c1c1c1c1: Añadir clase A")
                 .contains("\n        names\n")
                 .doesNotContain("names()");
+    }
+
+    @Test
+    @DisplayName("Renders the trajectory as a flowchart chain labelled with states")
+    void rendersTrajectoryAsFlowchartChain() {
+        var trajectory = new ClassTrajectory("A", List.of(
+                trajectoryPoint("c2c2c2c2c2c2", ChangeKind.ADDED, "oldMethod"),
+                trajectoryPoint("c3c3c3c3c3c3", ChangeKind.MODIFIED, "newMethod")));
+
+        var document = renderer.renderTrajectory(trajectory);
+
+        assertThat(document)
+                .startsWith("# Trayectoria de A")
+                .contains("```mermaid")
+                .contains("flowchart LR")
+                .contains("c2c2c2c2[\"c2c2c2c2 · añadida<br/>+ oldMethod()\"]")
+                .contains(" -->\n    c3c3c3c3[")
+                .contains("c3c3c3c3 · modificada<br/>+ newMethod()")
+                .endsWith("```\n");
+    }
+
+    private static ClassTrajectory.Point trajectoryPoint(String commitId, ChangeKind kind,
+            String member) {
+        var change = new StructuralChange.ClassChange("A", kind, List.of(method(member)),
+                List.of(), List.of(), List.of());
+        return new ClassTrajectory.Point(Commit.of(commitId), change);
     }
 }

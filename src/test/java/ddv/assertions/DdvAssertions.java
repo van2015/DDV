@@ -2,6 +2,7 @@ package ddv.assertions;
 
 import ddv.domain.exception.DiagramException;
 import ddv.domain.exception.DiffException;
+import ddv.domain.exception.EvolutionException;
 import ddv.domain.exception.ParseException;
 import ddv.domain.exception.ScopeException;
 import org.assertj.core.api.Assertions;
@@ -47,6 +48,14 @@ public final class DdvAssertions {
             DiagramException.Code expected) {
         Assertions.assertThatThrownBy(shouldRaise)
                 .isInstanceOfSatisfying(DiagramException.class,
+                        actual -> Assertions.assertThat(actual.code()).isEqualTo(expected));
+    }
+
+    /** Asserts the call throws an {@link EvolutionException} carrying the expected code. */
+    public static void assertEvolutionThrows(ThrowableAssert.ThrowingCallable shouldRaise,
+            EvolutionException.Code expected) {
+        Assertions.assertThatThrownBy(shouldRaise)
+                .isInstanceOfSatisfying(EvolutionException.class,
                         actual -> Assertions.assertThat(actual.code()).isEqualTo(expected));
     }
 }

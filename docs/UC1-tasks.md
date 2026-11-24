@@ -41,7 +41,7 @@ Seleccionar fuente (local/remota), especificar rango de análisis (`commit A..B`
 
 El *gate* (`jacoco:check`, regla `PACKAGE ≥ 0.80` líneas) se ejecuta en la fase `test` de todo `mvn clean test` y **rompe el build** si un paquete baja del umbral (verificado: a 0.99 falla con `Rule violated for package …`). Reporte HTML/CSV en `target/site/jacoco/`.
 
-> Valores del cierre de UC1; para el estado actual (UC2, UC3 y UC4 añadidas) ver el documento de la UC más reciente: `docs/UC4-tasks.md`.
+> Valores del cierre de UC1; para el estado actual (UC2–UC5 añadidas) ver el documento de la UC más reciente: `docs/UC5-tasks.md`.
 
 ---
 
