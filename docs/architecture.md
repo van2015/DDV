@@ -126,7 +126,9 @@ flowchart LR
     L -->|"Cᵢ₋₁, Cᵢ"| D["DiffExtractor<br/>(GitSourcePort)"]
     D -->|"DeltaSequence<br/>+ relevantChanges()"| A["StructuralAnalyzer<br/>(ParserPort)"]
     A -->|"StructuralSequence"| G["DiagramGenerator"]
-    G -->|"DiagramSpec"| ST["StorePort<br/>acumula Sᵢ"]
+    G -->|"DiagramSequence"| X["DiagramExporter<br/>(RendererPort + StorePort)"]
+    X -->|"Markdown"| F[".md por commit"]
+    X -.->|"saveDiagram()"| ST["StorePort<br/>(diagramas + S₁..Sₙ)"]
     ST --> L
     L -->|"fin del rango"| R["UC5: EvolutionComparer<br/>(lee StorePort)"]
 ```

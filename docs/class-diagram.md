@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados. **UC4 U4T1–U4T3:** `DiagramSpec` (+ `DiagramException`), `RendererPort` + `MermaidRenderer`, `DiagramSequence` + `DiagramGenerator`.
+> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados. **UC4 U4T1–U4T4:** `DiagramSpec` (+ `DiagramException`), `RendererPort` + `MermaidRenderer`, `DiagramSequence` + `DiagramGenerator`, `StorePort` + `FileStoreAdapter` + `DiagramExporter`.
 
 ---
 
@@ -271,6 +271,27 @@ classDiagram
         +render(DiagramSpec spec) String
     }
 
+    class StorePort {
+        <<interface>>
+        +saveDiagram(String commitId, String document) Path
+    }
+
+    class FileStoreAdapter {
+        <<adapter: out/file>>
+        -Path root
+        +FileStoreAdapter(Path root)
+        +saveDiagram(String commitId, String document) Path
+        -requireValidName(String commitId) void
+    }
+
+    class DiagramExporter {
+        <<use case: pipeline (UC4)>>
+        -RendererPort rendererPort
+        -StorePort storePort
+        +DiagramExporter(RendererPort rendererPort, StorePort storePort)
+        +export(DiagramSequence sequence) List~Path~
+    }
+
     class MermaidRenderer {
         <<adapter: out/mermaid>>
         +render(DiagramSpec spec) String
@@ -467,6 +488,14 @@ classDiagram
     RendererPort ..> DiagramSpec : entrada
     MermaidRenderer ..> DiagramSpec : emite Markdown + classDiagram
 
+    %% Adaptador de persistencia y exportación (U4T4)
+    StorePort <|.. FileStoreAdapter : implements
+    StorePort ..> Path : devuelve la ruta escrita
+    DiagramExporter ..> RendererPort : renderiza cada diagrama
+    DiagramExporter ..> StorePort : escribe cada documento
+    DiagramExporter ..> DiagramSequence : entrada (contrato de U4T3)
+    FileStoreAdapter ..> DiagramException : WRITE_ERROR / INVALID_INPUT
+
     %% Caso de uso UC1 (T6)
     ScopeResolver ..> GitSourcePort : usa (inyección)
     ScopeResolver ..> RepoScope : entrada
@@ -545,6 +574,7 @@ classDiagram
 - **`DiagramSpec` (U4T1)** es la representación *neutra de lenguaje* del diagrama de un commit: etiqueta (`previous`/`current`), nodos de clase con su `ChangeKind` (reutiliza el enum de Sᵢ) y miembros añadidos, y aristas de dependencia nueva — **solo cambios significativos** (decisión 5 de UC4). Un spec vacío = commit sin cambios, que el render convertirá en placeholder (decisión 4). Sus validaciones usan `DiagramException` (decisión de implementación: una excepción tipada por UC, complementa `WRITE_ERROR` para U4T4).
 - **`MermaidRenderer` (U4T2)** emite el **documento Markdown completo** (título con commit + bloque ` ```mermaid `) o el placeholder. Sintaxis verificada contra la documentación de Mermaid: anotación de estado **dentro de las llaves** (`<<added>>`), miembros **sin visibilidad** (opcional en Mermaid y no modelada), `..>` para dependencias. Sanitiza nombres (`Outer.Inner` → `Outer_Inner`, solo alfanuméricos/`_`/`-`) y tipos (`List<String>` → `List~String~`, comas fuera). Sin `switch` con `default`: los enums `ChangeKind`/`MemberKind` se cubren exhaustivamente. **Validado renderizando la salida real con Mermaid 11** (pilló un `classDiagram` duplicado, ya corregido y cubierto con `containsOnlyOnce`).
 - **`DiagramSpec.from(StructuralChange)` (U4T3)** es la lógica pura del mapeo (precedente: `FileStructureChange.between`): clases → nodos, dependencias nuevas → aristas con **nombre simple** — si el destino también cambió se usa su nombre calificado para no crear nodos implícitos —, omitiendo auto-aristas, deduplicando (import + uso del mismo tipo) y conservando la primera aparición ante colisión de nombres simples (limitación: los nombres no llevan paquete). **`DiagramGenerator`** es la etapa del pipeline que aplica `from` a cada $S_i$; **`DiagramSequence`** valida un diagrama por $S_i$ con sus commits (excepción `DiagramException(INVALID_INPUT)`, a diferencia de las secuencias de UC2/UC3 que usan `DiffException`).
+- **`DiagramExporter` (U4T4)** es la etapa de exportación: por cada diagrama, `render()` + `saveDiagram(shortId, documento)` en orden, devolviendo las rutas. **`FileStoreAdapter`** escribe `<commitId>.md` bajo una raíz inyectada (creando directorios) y valida el `commitId` — `Path.resolve` acepta rutas absolutas y separadores, así que un identificador con esos caracteres saldría del directorio de salida (`INVALID_INPUT`); los fallos de E/S → `WRITE_ERROR`. Es la primera ampliación de `StorePort`, que UC5 extiende con $S_1..S_n$.
 - **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
 ### Matriz de validaciones (T7)
@@ -577,12 +607,12 @@ classDiagram
 
 | Código | Origen | Causa |
 | :--- | :--- | :--- |
-| `INVALID_INPUT` | `DiagramSpec.Node` / `DiagramSpec.Edge` | nombre de clase, origen o destino de la arista en blanco |
-| `WRITE_ERROR` | `FileStoreAdapter` *(previsto U4T4)* | no se pudo escribir el diagrama en disco |
+| `INVALID_INPUT` | `DiagramSpec.Node` / `DiagramSpec.Edge` / `FileStoreAdapter` | nombre de clase, origen o destino de la arista en blanco; commitId en blanco o con separadores de ruta |
+| `WRITE_ERROR` | `FileStoreAdapter` | no se pudo crear el directorio raíz o escribir el `.md` |
 
 ## Pendiente de implementación (no representado aún)
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC4 (U4T4) | `StorePort` + `FileStoreAdapter` (exportación) |
+| UC5 | `StorePort` (cargas), `FileStoreAdapter` (cargas), `EvolutionComparer` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |

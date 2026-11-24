@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC4: Generar Diagrama UML por Commit
 
-**Estado:** U4T1–U4T3 completadas (3/7)
+**Estado:** U4T1–U4T4 completadas (4/7)
 **Stack:** Java 25+, Maven, JGit, JavaParser, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesoras:** UC1, UC2 y UC3 completas · numeración `U4Tn`
@@ -42,7 +42,7 @@ alineado con el `StructuralSequence` de UC3.
 | `RendererPort` → `MermaidRenderer` | `adapters/out/mermaid/package-info` | ✅ implementado en U4T2 (`render(DiagramSpec) → String`) |
 | `DiagramSpec` | `docs/architecture.md` (árbol de dominio) | ✅ creado en U4T1 (con `DiagramException`) |
 | `DiagramGenerator` | `application/pipeline/package-info` y `architecture.md` §5 | ✅ implementado en U4T3 (con `DiagramSpec.from` y `DiagramSequence`) |
-| `StorePort` → `FileStoreAdapter` | `adapters/out/file/package-info` | ⏳ la decisión 3 lo trae adelante a UC4 (U4T4); UC5 lo amplía con S₁..Sₙ |
+| `StorePort` → `FileStoreAdapter` | `adapters/out/file/package-info` | ✅ exportación en U4T4 (`saveDiagram`); UC5 lo amplía con cargas y S₁..Sₙ |
 
 ---
 
@@ -53,7 +53,7 @@ alineado con el `StructuralSequence` de UC3.
 | **U4T1** | ✅ Modelo de diagrama | `domain/model` | Representación neutra y sin dependencias de formato: nodos de clase con su estado (añadida/modificada/eliminada) y miembros añadidos, aristas de dependencia nueva, etiqueta del commit | `DiagramSpec` (con `Node`, `Edge`; reutiliza `StructuralChange.ChangeKind`) + `DiagramException` (`INVALID_INPUT`/`WRITE_ERROR`) + `DiagramSpecTest` (7 tests) ✅ |
 | **U4T2** | ✅ Puerto y adaptador de render | `ports`, `adapters/out/mermaid` | `RendererPort.render(DiagramSpec) → String` con `MermaidRenderer` emitiendo sintaxis `classDiagram` válida | puerto + adaptador (Markdown completo o placeholder; anotaciones, `..>`, sanitizado de nombres/tipos) + 5 tests — `adapters/out/mermaid` al 100% ✅ |
 | **U4T3** | ✅ Caso de uso DiagramGenerator | `application/pipeline` | `StructuralSequence` → un `DiagramSpec` por Δ con las estructuras **añadidas o modificadas significativamente**; los commits sin cambios producen un spec vacío que el render convierte en placeholder | `DiagramSpec.from(Sᵢ)` (mapeo puro: nombres simples, auto-aristas fuera, dedupe) + `DiagramGenerator` + `DiagramSequence` (alineación con commits) + 12 tests ✅ |
-| **U4T4** | Exportación a disco | `ports`, `adapters/out/file` | Escribir cada diagrama como `.md` con su bloque Mermaid, reproducible y versionable (decisión 3) | puerto + `FileStoreAdapter` + tests con `@TempDir` |
+| **U4T4** | ✅ Exportación a disco | `ports`, `adapters/out/file`, `application/pipeline` | Escribir cada diagrama como `.md` con su bloque Mermaid, reproducible y versionable (decisión 3) | `StorePort.saveDiagram` + `FileStoreAdapter` (`<commitId>.md` bajo raíz inyectada, guarda contra path traversal) + `DiagramExporter` (render → store en orden) + 7 tests — `adapters/out/file` al 100% ✅ |
 | **U4T5** | Contrato hacia UC5 | `application/pipeline` | UC5 podrá recorrer los diagramas alineados con sus $S_i$ y deltas sin código adhesivo | contract test estilo T9 + garantías en javadoc |
 | **U4T6** | E2E UC1 → UC4 | `src/test` | Cadena real (JGit + JavaParser + render) hasta el texto Mermaid en disco | E2E sin mocks sobre un repo con evolución de clases |
 | **U4T7** | QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo + `class-diagram.md` + `architecture.md` §4/§5 |
