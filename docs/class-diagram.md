@@ -614,5 +614,4 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC5 | `StorePort` (cargas), `FileStoreAdapter` (cargas), `EvolutionComparer` |
-| UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |
+| UC5 | `StorePort` (cargas y estados), `FileStoreAdapter` (cargas y estados), `EvolutionComparer`, modelo de trayectoria |
