@@ -13,6 +13,12 @@ import java.util.Objects;
  * a la i-ésima Δ sin código adhesivo. La alineación se valida contra la
  * procedencia de cada cambio.</p>
  *
+ * <p><b>Contrato estable:</b> inmutabilidad, un $S_i$ por Δ y alineación con la
+ * procedencia de cada cambio. Bloqueado por {@code StructuralSequenceTest} y
+ * {@code StructuralSequenceContractTest} (alimenta a un generador de diagramas
+ * falso con lo que UC4 necesita: commits, clases, miembros y dependencias
+ * añadidos).</p>
+ *
  * @param source  secuencia de Δ de la que derivan los cambios (trazabilidad)
  * @param changes un $S_i$ por Δ, en el mismo orden
  */
