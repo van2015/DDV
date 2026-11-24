@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC3: Analizar Estructura Cambiada por Commit
 
-**Estado:** U3T1–U3T7 completadas (7/8)
+**Estado:** U3T1–U3T8 completadas — **UC3 completa**
 **Stack:** Java 25+, Maven, JGit, **JavaParser**, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesoras:** UC1 (`docs/UC1-tasks.md`) y UC2 (`docs/UC2-tasks.md`) completas · numeración `U3Tn`
@@ -66,7 +66,7 @@ de UC2, alineado con él.
 | **U3T5** | ✅ Caso de uso StructuralAnalyzer | `application/pipeline` | Por cada Δ: abre el repo, lee contenidos viejo/nuevo de los `.java`, parsea ambos y **resta** estructuras → $S_i$ por par | `StructuralAnalyzer.analyze()` (try-with-resources, filtro antes de leer) + `FileStructureChange.between()` (resta pura en dominio) + `StructuralChange.delta` (procedencia) + `StructuralSequence` (alineación 1:1) + 23 tests ✅ |
 | **U3T6** | ✅ Contrato hacia UC4 | `application/pipeline` | Garantizar que UC4 recibirá $S_i$ completo (clases, métodos añadidos, dependencias nuevas) sin código adhesivo | `StructuralSequenceContractTest` (3 tests con generador de diagramas falso sobre la salida real del analizador: un diagrama por Δ en orden, commits etiquetados, clases/miembros/dependencias añadidos, rango de 1 commit → 0) + garantías en javadoc ✅ |
 | **U3T7** | ✅ E2E UC1 → UC2 → UC3 | `src/test` | Cadena real (JGit + parser) sobre un repo temporal cuyas clases evolucionan | `StructuralAnalyzerE2ETest` (3 tests, sin mocks): historia de 5 commits con alta de clase → método nuevo → import/campo → borrado; solo `.java` llega al análisis ✅ |
-| **U3T8** | QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo + `class-diagram.md` + `architecture.md` §4/§5 |
+| **U3T8** | ✅ QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo · `class-diagram.md` (cajas `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `ParserPort`/`AstParserAdapter`, `StructuralAnalyzer`) · `architecture.md` §4/§5 actualizados ✅ |
 
 ---
 
@@ -138,4 +138,20 @@ flowchart LR
 
 ## Métricas de cobertura (JaCoCo)
 
-*(se rellena en U3T8 — gate activo: `PACKAGE ≥ 0.80` líneas en `mvn clean test`)*
+*(gate activo: `PACKAGE ≥ 0.80` líneas en toda fase `test` de `mvn clean test`)*
+
+| Paquete | Instrucciones | Líneas | Objetivo ≥80% |
+| :--- | :--- | :--- | :--- |
+| `ddv.application.pipeline` | 100,0% | 100,0% | ✅ |
+| `ddv.application.scope` | 100,0% | 100,0% | ✅ |
+| `ddv.domain.model` | 99,7% | 100,0% | ✅ |
+| `ddv.domain.exception` | 94,3% | 92,1% | ✅ |
+| `ddv.adapters.in.cli` | 92,9% | 91,7% | ✅ |
+| `ddv.adapters.out.ast` | 93,2% | 90,8% | ✅ |
+| `ddv.adapters.out.jgit` | 93,2% | 93,8% | ✅ |
+| **Total** | **96,3%** | **95,9% (517/539 líneas)** | ✅ |
+
+**149 tests, 0 fallos, 0 errores** (2026-11-24). Reporte HTML/CSV en `target/site/jacoco/`.
+Las líneas sin cubrir son ramas de error poco reproducibles (fallo al crear el
+workspace del clon, `IOException` en la limpieza, caso `COPY` del diff) y
+constructores/validaciones defensivas.
