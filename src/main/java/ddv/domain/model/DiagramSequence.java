@@ -12,6 +12,13 @@ import java.util.Objects;
  * {@link #diagrams()} y sabe que la i-ésima corresponde a la i-ésima Δ sin
  * código adhesivo. La alineación se valida contra los commits de cada $S_i$.</p>
  *
+ * <p><b>Contrato estable:</b> un diagrama por $S_i$, en el mismo orden y con los
+ * mismos commits; la procedencia completa ({@code source}) permite a UC5
+ * recorrer la trayectoria de una clase a lo largo de todo el rango. Bloqueado
+ * por {@code DiagramSequenceTest} y {@code DiagramSequenceContractTest}
+ * (alimenta a un comparador de evolución falso con la salida real del
+ * generador).</p>
+ *
  * @param source   secuencia de $S_i$ de la que derivan los diagramas (trazabilidad)
  * @param diagrams un diagrama por $S_i$, en el mismo orden
  */

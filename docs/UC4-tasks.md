@@ -1,6 +1,6 @@
 # Propuesta de Tareas — UC4: Generar Diagrama UML por Commit
 
-**Estado:** U4T1–U4T4 completadas (4/7)
+**Estado:** U4T1–U4T7 completadas — **UC4 completa**
 **Stack:** Java 25+, Maven, JGit, JavaParser, JUnit 5 + AssertJ + Mockito
 **Arquitectura:** Hexagonal + Pipeline (ver `docs/architecture.md`)
 **Predecesoras:** UC1, UC2 y UC3 completas · numeración `U4Tn`
@@ -54,9 +54,9 @@ alineado con el `StructuralSequence` de UC3.
 | **U4T2** | ✅ Puerto y adaptador de render | `ports`, `adapters/out/mermaid` | `RendererPort.render(DiagramSpec) → String` con `MermaidRenderer` emitiendo sintaxis `classDiagram` válida | puerto + adaptador (Markdown completo o placeholder; anotaciones, `..>`, sanitizado de nombres/tipos) + 5 tests — `adapters/out/mermaid` al 100% ✅ |
 | **U4T3** | ✅ Caso de uso DiagramGenerator | `application/pipeline` | `StructuralSequence` → un `DiagramSpec` por Δ con las estructuras **añadidas o modificadas significativamente**; los commits sin cambios producen un spec vacío que el render convierte en placeholder | `DiagramSpec.from(Sᵢ)` (mapeo puro: nombres simples, auto-aristas fuera, dedupe) + `DiagramGenerator` + `DiagramSequence` (alineación con commits) + 12 tests ✅ |
 | **U4T4** | ✅ Exportación a disco | `ports`, `adapters/out/file`, `application/pipeline` | Escribir cada diagrama como `.md` con su bloque Mermaid, reproducible y versionable (decisión 3) | `StorePort.saveDiagram` + `FileStoreAdapter` (`<commitId>.md` bajo raíz inyectada, guarda contra path traversal) + `DiagramExporter` (render → store en orden) + 7 tests — `adapters/out/file` al 100% ✅ |
-| **U4T5** | Contrato hacia UC5 | `application/pipeline` | UC5 podrá recorrer los diagramas alineados con sus $S_i$ y deltas sin código adhesivo | contract test estilo T9 + garantías en javadoc |
-| **U4T6** | E2E UC1 → UC4 | `src/test` | Cadena real (JGit + JavaParser + render) hasta el texto Mermaid en disco | E2E sin mocks sobre un repo con evolución de clases |
-| **U4T7** | QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo + `class-diagram.md` + `architecture.md` §4/§5 |
+| **U4T5** | ✅ Contrato hacia UC5 | `application/pipeline` | UC5 podrá recorrer los diagramas alineados con sus $S_i$ y deltas sin código adhesivo | `DiagramSequenceContractTest` (4 tests con comparador de evolución falso sobre la salida real del generador: línea temporal por commit, trayectoria de clase A → ADDED/MODIFIED/REMOVED, placeholder para commit sin cambios, procedencia hasta el rango original) + garantías en javadoc ✅ |
+| **U4T6** | ✅ E2E UC1 → UC4 | `src/test` | Cadena real (JGit + JavaParser + render) hasta el texto Mermaid en disco | `DiagramExporterE2ETest` (4 tests, sin mocks): 5 commits → 5 `.md`, clase añadida con `<<added>>`, método nuevo con `<<modified>>`, commit sin cambios → placeholder ✅ |
+| **U4T7** | ✅ QA y documentación | `docs`, `src/test` | Métricas de cobertura y diagramas al día (reglas 1 y 6) | tabla de métricas abajo · `class-diagram.md` (UC4 completa) · `architecture.md` §4/§5 · puntero de métricas de UC1 actualizado ✅ |
 
 ---
 
@@ -128,4 +128,22 @@ flowchart LR
 
 ## Métricas de cobertura (JaCoCo)
 
-*(se rellena en U4T7 — gate activo: `PACKAGE ≥ 0.80` líneas en `mvn clean test`)*
+*(gate activo: `PACKAGE ≥ 0.80` líneas en toda fase `test` de `mvn clean test`)*
+
+| Paquete | Instrucciones | Líneas | Objetivo ≥80% |
+| :--- | :--- | :--- | :--- |
+| `ddv.application.pipeline` | 100,0% | 100,0% | ✅ |
+| `ddv.application.scope` | 100,0% | 100,0% | ✅ |
+| `ddv.adapters.out.file` | 100,0% | 100,0% | ✅ |
+| `ddv.adapters.out.mermaid` | 100,0% | 100,0% | ✅ |
+| `ddv.domain.model` | 99,8% | 100,0% | ✅ |
+| `ddv.domain.exception` | 95,4% | 93,8% | ✅ |
+| `ddv.adapters.in.cli` | 92,9% | 91,7% | ✅ |
+| `ddv.adapters.out.jgit` | 93,2% | 93,8% | ✅ |
+| `ddv.adapters.out.ast` | 93,2% | 90,8% | ✅ |
+| **Total** | **97,0%** | **96,7% (651/673 líneas)** | ✅ |
+
+**188 tests, 0 fallos, 0 errores** (2026-11-24). Reporte HTML/CSV en `target/site/jacoco/`.
+Las líneas sin cubrir son ramas de error poco reproducibles (fallo al crear el
+workspace del clon, `IOException` en la limpieza, caso `COPY` del diff) y
+constructores/validaciones defensivas.
