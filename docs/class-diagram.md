@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados. **UC4 U4T1:** `DiagramSpec` (+ `DiagramException`).
+> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8) y **UC3 completa** (U3T1–U3T8: `CodeStructure`, `StructuralChange`/`StructuralSequence`, `ParseException`, `content()`, `ParserPort` + `AstParserAdapter`, `StructuralAnalyzer`, contrato UC3 → UC4 y E2E). Revisión de calidad intermedia: `SourceFileFilter` normaliza extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques duplicados. **UC4 U4T1–U4T2:** `DiagramSpec` (+ `DiagramException`), `RendererPort` + `MermaidRenderer`.
 
 ---
 
@@ -258,6 +258,22 @@ classDiagram
         +parse(String path, String source) CodeStructure
     }
 
+    class RendererPort {
+        <<interface>>
+        +render(DiagramSpec spec) String
+    }
+
+    class MermaidRenderer {
+        <<adapter: out/mermaid>>
+        +render(DiagramSpec spec) String
+        -title(DiagramSpec spec) String
+        -classDiagram(DiagramSpec spec) String
+        -appendNode(StringBuilder diagram, Node node) void
+        -stereotype(ChangeKind state) String
+        -member(MemberStructure member) String
+        -sanitize(String text) String
+    }
+
     class AstParserAdapter {
         <<adapter: out/ast>>
         -JavaParser parser
@@ -422,6 +438,11 @@ classDiagram
     AstParserAdapter ..> ParseException : errores de sintaxis
     AstParserAdapter ..> CodeStructure : produce la instantánea
 
+    %% Adaptador de render (U4T2)
+    RendererPort <|.. MermaidRenderer : implements
+    RendererPort ..> DiagramSpec : entrada
+    MermaidRenderer ..> DiagramSpec : emite Markdown + classDiagram
+
     %% Caso de uso UC1 (T6)
     ScopeResolver ..> GitSourcePort : usa (inyección)
     ScopeResolver ..> RepoScope : entrada
@@ -498,6 +519,7 @@ classDiagram
 - **`DiffExtractor` (U2T5)** es el caso de uso UC2: `open → diff(par) → close` sobre `consecutivePairs()`, ensamblando `DeltaSequence` (el invariante de alineación del record detecta un puerto que devuelva Δs fuera de orden). `relevantChanges()` entrega a UC3 la lista plana de archivos analizables, en orden de aparición.
 - **`Code`** está anidado en `ScopeException`; `DiffException`, `ParseException` y `DiagramException` tienen el suyo propio (representados como `DiffCode`, `ParseCode` y `DiagramCode` para no colisionar en el diagrama).
 - **`DiagramSpec` (U4T1)** es la representación *neutra de lenguaje* del diagrama de un commit: etiqueta (`previous`/`current`), nodos de clase con su `ChangeKind` (reutiliza el enum de Sᵢ) y miembros añadidos, y aristas de dependencia nueva — **solo cambios significativos** (decisión 5 de UC4). Un spec vacío = commit sin cambios, que el render convertirá en placeholder (decisión 4). Sus validaciones usan `DiagramException` (decisión de implementación: una excepción tipada por UC, complementa `WRITE_ERROR` para U4T4).
+- **`MermaidRenderer` (U4T2)** emite el **documento Markdown completo** (título con commit + bloque ` ```mermaid `) o el placeholder. Sintaxis verificada contra la documentación de Mermaid: anotación de estado **dentro de las llaves** (`<<added>>`), miembros **sin visibilidad** (opcional en Mermaid y no modelada), `..>` para dependencias. Sanitiza nombres (`Outer.Inner` → `Outer_Inner`, solo alfanuméricos/`_`/`-`) y tipos (`List<String>` → `List~String~`, comas fuera). Sin `switch` con `default`: los enums `ChangeKind`/`MemberKind` se cubren exhaustivamente.
 - **Paquetes de `application` nombrados por concepto, no por número de UC** (`scope`, `evolution`, `pipeline`): el número es volátil y no dice nada en un import; el caso de uso se referencia en la documentación (`docs/UC-diagram.md`).
 
 ### Matriz de validaciones (T7)
@@ -537,5 +559,5 @@ classDiagram
 
 | Tarea | Clases futuras |
 | :--- | :--- |
-| UC4 (U4T2–U4T4) | `RendererPort`, `MermaidRenderer`, `DiagramGenerator`, `StorePort` + `FileStoreAdapter` |
+| UC4 (U4T3–U4T4) | `DiagramGenerator`, `StorePort` + `FileStoreAdapter` |
 | UC5 | `StorePort`, `FileStoreAdapter`, `EvolutionComparer` |
