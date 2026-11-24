@@ -7,7 +7,7 @@
 
 ---
 
-## Alcance (según `AGENTS.md`)
+## Alcance (según `docs/UC-diagram.md`)
 
 Permitir al analista ver la **trayectoria de una entidad específica** («¿Cómo ha
 evolucionado la clase `PaymentProcessor`?») a lo largo de todo el historial
@@ -94,7 +94,8 @@ flowchart LR
    `DiagramSequence` y escribe los `.md`, así que un solo paso de exportación
    deja todo en disco para UC5 (`saveDiagram` + `saveStates`).
 3. **Salida de UC5:** **resumen textual + diagrama de trayectoria** (el «y/o»
-   de `AGENTS.md` cubierto al completo), el diagrama en Mermaid.
+   del objetivo de UC5 en `docs/UC-diagram.md` cubierto al completo), el
+   diagrama en Mermaid.
 4. **Superficie de CLI:** **`ddv analyze` pasa a ejecutar el pipeline completo
    (UC1→UC4)** —exportando los `.md`— **y acepta `--track <clase>` opcional**
    que añade UC5: un solo comando y progresivo.

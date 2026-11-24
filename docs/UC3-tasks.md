@@ -7,7 +7,7 @@
 
 ---
 
-## Alcance (según `AGENTS.md`)
+## Alcance (según `docs/UC-diagram.md`)
 
 Parsear el código afectado en cada commit para identificar las estructuras
 semánticas nuevas, **sin ejecutar el código**. Para cada archivo del Δ:

@@ -7,7 +7,7 @@
 
 ---
 
-## Alcance (según `AGENTS.md`)
+## Alcance (según `docs/UC-diagram.md`)
 
 Iterar los commits $C_1..C_n$ del `AnalysisScope` resuelto por UC1 y, para cada par consecutivo $(C_{i-1}, C_i)$, generar un *diff* a nivel de código fuente registrando: **archivo**, **tipo de cambio** (Añadido/Modificado/Eliminado) y **la lista de archivos con cambios estructurales relevantes** (los que UC3 podrá parsear).
 

@@ -7,7 +7,7 @@
 
 ---
 
-## Alcance (según `AGENTS.md`)
+## Alcance (según `docs/UC-diagram.md`)
 
 Crear un diagrama visual que represente las estructuras **añadidas o
 modificadas significativamente** del commit $C_i$:

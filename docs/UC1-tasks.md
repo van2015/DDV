@@ -6,7 +6,7 @@
 
 ---
 
-## Alcance (según `AGENTS.md`)
+## Alcance (según `docs/UC-diagram.md`)
 
 Seleccionar fuente (local/remota), especificar rango de análisis (`commit A..B` o últimos N commits) y validar que el repositorio exista y el rango sea coherente.
 
