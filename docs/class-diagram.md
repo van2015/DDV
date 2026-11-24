@@ -1,7 +1,7 @@
 # Diagrama de Clases — DDV
 
 > 📏 Generado a partir de `src/main/java/ddv` (ver `AGENTS.md` § Reglas, regla 6).
-> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados). **UC3 U3T1–U3T6:** `CodeStructure`, `StructuralChange`/`StructuralSequence` (Sᵢ), `ParseException`, `GitSourcePort.content()` (U3T2), `ParserPort` + `AstParserAdapter` (U3T4), `StructuralAnalyzer` (U3T5) y contrato UC3 → UC4 (U3T6).
+> **Última actualización:** 2026-11-24 — **UC2 completa** (U2T1–U2T8: `DeltaSequence`, `DiffException`, `JGitAdapter.diff()`, `SourceFileFilter`, `DiffExtractor`) y revisión de calidad (`SourceFileFilter` normaliza y valida sus extensiones, `Commit.SHORT_ID_LENGTH`, `JGitAdapter` sin métodos >30 líneas ni bloques internos duplicados). **UC3 U3T1–U3T7:** `CodeStructure`, `StructuralChange`/`StructuralSequence` (Sᵢ), `ParseException`, `GitSourcePort.content()` (U3T2), `ParserPort` + `AstParserAdapter` (U3T4), `StructuralAnalyzer` (U3T5), contrato UC3 → UC4 (U3T6) y E2E (U3T7).
 
 ---
 
